@@ -3,13 +3,17 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Dashboard Keuangan Take & Give - BPOM Bogor</title>
+    <title>SIPENA (Sistem Pengelolaan Dana Amanah)- BPOM di Bogor</title>
     <!-- Tailwind CSS untuk Desain Modern dan Responsif -->
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- FontAwesome untuk Ikon -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <!-- Chart.js untuk Grafik Keuangan -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- SheetJS (XLSX) untuk Export ke Excel -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <!-- jsPDF & html2pdf untuk Export ke PDF -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
 </head>
 <body class="bg-slate-50 font-sans antialiased text-slate-800">
 
@@ -24,8 +28,8 @@
                         <i class="fa-solid fa-chart-pie text-xl"></i>
                     </div>
                     <div>
-                        <h1 class="font-bold text-lg leading-tight">Take & Give BPOM Bogor</h1>
-                        <p class="text-xs text-emerald-200">Dashboard Transparansi Keuangan Internal</p>
+                        <h1 class="font-bold text-lg leading-tight">SIPENA (Sistem Pengelolaan Dana Amanah)- BPOM di Bogor</h1>
+                        <p class="text-xs text-emerald-200">Tertib Mengelola • Transparan Melaporkan • Amanah Menyalurkan</p>
                     </div>
                 </div>
                 <div class="flex items-center space-x-4">
@@ -34,7 +38,7 @@
                         <span id="current-role-text">Memuat...</span>
                     </div>
                     <button onclick="toggleRoleModal()" class="bg-emerald-600 hover:bg-emerald-500 text-xs px-3 py-1.5 rounded font-medium transition">
-                        Ganti Peran
+                        Ganti Peran / Login
                     </button>
                 </div>
             </div>
@@ -75,59 +79,207 @@
                 </div>
             </div>
 
-            <!-- GRAFIK & PANEL INPUT / EDIT (ADMIN ONLY) -->
+            <!-- PANEL SUPER ADMIN: BACKUP, KOMPILASI LAPORAN & GANTI PASSWORD SUPER ADMIN -->
+            <div id="super-admin-control-panel" class="bg-purple-900 text-white p-5 rounded-xl shadow-md space-y-4 hidden">
+                <div class="flex items-center justify-between border-b border-purple-800 pb-3">
+                    <div>
+                        <h3 class="font-bold text-base"><i class="fa-solid fa-shield-cat mr-2 text-purple-300"></i>Panel Kendali & Manajemen Super Admin</h3>
+                        <p class="text-xs text-purple-200">Fasilitas pemeliharaan database, cadangan data, kompilasi laporan, dan keamanan akses.</p>
+                    </div>
+                    <span class="bg-purple-800 text-purple-200 text-xs px-3 py-1 rounded-full font-mono font-semibold">Akses Terbatas</span>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-4 gap-4 pt-2">
+                    <!-- Backup & Restore -->
+                    <div class="bg-purple-800/60 p-4 rounded-lg border border-purple-700/60 space-y-3">
+                        <h4 class="font-bold text-sm text-purple-100"><i class="fa-solid fa-database mr-1.5"></i>Backup & Restore</h4>
+                        <div class="flex space-x-2">
+                            <button onclick="backupDataJSON()" class="flex-1 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold py-2 px-2 rounded transition shadow">Backup</button>
+                            <label class="flex-1 bg-amber-600 hover:bg-amber-500 text-white text-xs font-semibold py-2 px-2 rounded transition shadow text-center cursor-pointer">
+                                Restore
+                                <input type="file" id="restore-file-input" accept=".json" onchange="restoreDataJSON(event)" class="hidden">
+                            </label>
+                        </div>
+                        <p class="text-[11px] text-purple-300">Amankan salinan database lokal sistem.</p>
+                    </div>
+
+                    <!-- Kompilasi Laporan Excel -->
+                    <div class="bg-purple-800/60 p-4 rounded-lg border border-purple-700/60 space-y-3">
+                        <h4 class="font-bold text-sm text-purple-100"><i class="fa-solid fa-file-excel mr-1.5"></i>Kompilasi Excel</h4>
+                        <button onclick="exportToExcel()" class="w-full bg-emerald-700 hover:bg-emerald-600 text-white text-xs font-semibold py-2.5 px-3 rounded transition shadow flex items-center justify-center space-x-1.5">
+                            <i class="fa-solid fa-file-arrow-down"></i>
+                            <span>Download .xlsx</span>
+                        </button>
+                        <p class="text-[11px] text-purple-300">Unduh rekapitulasi format spreadsheet.</p>
+                    </div>
+
+                    <!-- Kompilasi Laporan PDF -->
+                    <div class="bg-purple-800/60 p-4 rounded-lg border border-purple-700/60 space-y-3">
+                        <h4 class="font-bold text-sm text-purple-100"><i class="fa-solid fa-file-pdf mr-1.5"></i>Kompilasi PDF</h4>
+                        <button onclick="exportToPDF()" class="w-full bg-rose-600 hover:bg-rose-500 text-white text-xs font-semibold py-2.5 px-3 rounded transition shadow flex items-center justify-center space-x-1.5">
+                            <i class="fa-solid fa-file-arrow-down"></i>
+                            <span>Download .pdf</span>
+                        </button>
+                        <p class="text-[11px] text-purple-300">Cetak ringkasan laporan dokumen PDF.</p>
+                    </div>
+
+                    <!-- Ganti Password Super Admin -->
+                    <div class="bg-purple-800/60 p-4 rounded-lg border border-purple-700/60 space-y-2">
+                        <h4 class="font-bold text-sm text-purple-100"><i class="fa-solid fa-key mr-1.5"></i>Ganti Sandi Super</h4>
+                        <input type="password" id="new-super-pass" placeholder="Sandi Baru Super" class="w-full text-xs bg-purple-900 border border-purple-600 text-white placeholder-purple-300 rounded p-1.5 focus:outline-none focus:ring-1 focus:ring-emerald-400">
+                        <button onclick="updateSuperAdminPassword()" class="w-full bg-purple-600 hover:bg-purple-500 text-white text-xs font-semibold py-2 rounded transition shadow">
+                            Perbarui Sandi
+                        </button>
+                        <p class="text-[10px] text-purple-300">Ubah sandi login khusus super admin.</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- GRAFIK & PANEL INPUT / EDIT & GANTI PASSWORD ADMIN BIDANG -->
             <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                <!-- Grafik -->
-                <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-100 lg:col-span-2 flex flex-col justify-between">
-                    <h3 class="font-bold text-slate-700 mb-4"><i class="fa-solid fa-chart-line mr-2 text-emerald-600"></i>Grafik Keuangan Berdasarkan Kategori</h3>
-                    <div class="relative h-64 w-full">
-                        <canvas id="financeChart"></canvas>
+                <!-- Grafik Section (Pemasukan & Pengeluaran) -->
+                <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-100 lg:col-span-2 space-y-6">
+                    <div>
+                        <h3 class="font-bold text-slate-700 mb-3 text-sm"><i class="fa-solid fa-chart-column mr-2 text-emerald-600"></i>Grafik Pemasukan Berdasarkan Kategori</h3>
+                        <div class="relative h-48 w-full">
+                            <canvas id="incomeChart"></canvas>
+                        </div>
+                    </div>
+                    <hr class="border-slate-100">
+                    <div>
+                        <h3 class="font-bold text-slate-700 mb-3 text-sm"><i class="fa-solid fa-chart-bar mr-2 text-rose-600"></i>Grafik Pengeluaran Berdasarkan Kategori</h3>
+                        <div class="relative h-48 w-full">
+                            <canvas id="expenseChart"></canvas>
+                        </div>
                     </div>
                 </div>
 
-                <!-- Panel Form Input / Edit (Hanya Admin) -->
-                <div id="admin-panel" class="bg-white p-5 rounded-xl shadow-sm border border-slate-100 hidden">
-                    <div class="flex justify-between items-center mb-3">
-                        <h3 id="form-title" class="font-bold text-slate-700 text-sm"><i class="fa-solid fa-pen-to-square mr-2 text-emerald-600"></i>Entri Transaksi Baru</h3>
-                        <button id="btn-cancel-edit" onclick="resetForm()" class="text-xs text-rose-500 hover:underline hidden">Batal Edit</button>
+                <!-- Panel Form Input / Edit & Menu Ganti Sandi Admin Bidang (Hanya Admin) -->
+                <div id="admin-panel" class="bg-white p-5 rounded-xl shadow-sm border border-slate-100 hidden space-y-6">
+                    <!-- Form Transaksi -->
+                    <div>
+                        <div class="flex justify-between items-center mb-3">
+                            <h3 id="form-title" class="font-bold text-slate-700 text-sm"><i class="fa-solid fa-pen-to-square mr-2 text-emerald-600"></i>Entri Transaksi Baru</h3>
+                            <button id="btn-cancel-edit" onclick="resetForm()" class="text-xs text-rose-500 hover:underline hidden">Batal Edit</button>
+                        </div>
+                        <form id="transaction-form" onsubmit="handleFormSubmit(event)" class="space-y-3">
+                            <input type="hidden" id="tx-id">
+                            <div>
+                                <label class="block text-xs font-semibold text-slate-600 mb-1">Jenis Transaksi</label>
+                                <select id="tx-type" class="w-full text-sm border border-slate-300 rounded-lg p-2 focus:ring-2 focus:ring-emerald-500 focus:outline-none">
+                                    <option value="Masuk">Pemasukan</option>
+                                    <option value="Keluar">Pengeluaran</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-xs font-semibold text-slate-600 mb-1">Kategori Sumber</label>
+                                <select id="tx-category" class="w-full text-sm border border-slate-300 rounded-lg p-2 focus:ring-2 focus:ring-emerald-500 focus:outline-none">
+                                    <option value="Sumbangan Sukarela">Sumbangan Sukarela</option>
+                                    <option value="Sumbangan Sosial">Sumbangan Sosial</option>
+                                    <option value="Iuran Korpri">Iuran Korpri</option>
+                                    <option value="Lainnya">Lainnya</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-xs font-semibold text-slate-600 mb-1">Jumlah (Rp)</label>
+                                <input type="number" id="tx-amount" min="1" required placeholder="Contoh: 50000" class="w-full text-sm border border-slate-300 rounded-lg p-2 focus:ring-2 focus:ring-emerald-500 focus:outline-none">
+                            </div>
+                            <div>
+                                <label class="block text-xs font-semibold text-slate-600 mb-1">Keterangan / Uraian</label>
+                                <input type="text" id="tx-desc" required placeholder="Contoh: Iuran bulan Januari" class="w-full text-sm border border-slate-300 rounded-lg p-2 focus:ring-2 focus:ring-emerald-500 focus:outline-none">
+                            </div>
+                            <button type="submit" id="btn-submit" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-semibold py-2 rounded-lg transition shadow-sm">
+                                Simpan Transaksi
+                            </button>
+                        </form>
                     </div>
-                    <form id="transaction-form" onsubmit="handleFormSubmit(event)" class="space-y-3">
-                        <input type="hidden" id="tx-id">
+
+                    <hr class="border-slate-100">
+
+                    <!-- Menu Ganti Password Admin Bidang yang Sedang Login -->
+                    <div class="bg-slate-50 p-4 rounded-xl border border-slate-200 space-y-3">
+                        <h4 class="font-bold text-xs text-slate-700"><i class="fa-solid fa-key mr-1.5 text-emerald-600"></i>Ganti Sandi Admin (<span id="active-admin-label">-</span>)</h4>
                         <div>
-                            <label class="block text-xs font-semibold text-slate-600 mb-1">Jenis Transaksi</label>
-                            <select id="tx-type" class="w-full text-sm border border-slate-300 rounded-lg p-2 focus:ring-2 focus:ring-emerald-500 focus:outline-none">
-                                <option value="Masuk">Pemasukan</option>
-                                <option value="Keluar">Pengeluaran</option>
-                            </select>
+                            <input type="password" id="new-admin-pass" placeholder="Masukkan sandi baru bidang ini" class="w-full text-xs border border-slate-300 rounded-lg p-2 focus:ring-1 focus:ring-emerald-500 focus:outline-none">
                         </div>
-                        <div>
-                            <label class="block text-xs font-semibold text-slate-600 mb-1">Kategori Sumber</label>
-                            <select id="tx-category" class="w-full text-sm border border-slate-300 rounded-lg p-2 focus:ring-2 focus:ring-emerald-500 focus:outline-none">
-                                <option value="Sumbangan Sukarela">Sumbangan Sukarela</option>
-                                <option value="Sumbangan Sosial">Sumbangan Sosial</option>
-                                <option value="Iuran Korpri">Iuran Korpri</option>
-                                <option value="Lainnya">Lainnya</option>
-                            </select>
-                        </div>
-                        <div>
-                            <label class="block text-xs font-semibold text-slate-600 mb-1">Jumlah (Rp)</label>
-                            <input type="number" id="tx-amount" min="1" required placeholder="Contoh: 50000" class="w-full text-sm border border-slate-300 rounded-lg p-2 focus:ring-2 focus:ring-emerald-500 focus:outline-none">
-                        </div>
-                        <div>
-                            <label class="block text-xs font-semibold text-slate-600 mb-1">Keterangan / Uraian</label>
-                            <input type="text" id="tx-desc" required placeholder="Contoh: Iuran bulan Januari" class="w-full text-sm border border-slate-300 rounded-lg p-2 focus:ring-2 focus:ring-emerald-500 focus:outline-none">
-                        </div>
-                        <button type="submit" id="btn-submit" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-semibold py-2 rounded-lg transition shadow-sm">
-                            Simpan Transaksi
+                        <button onclick="updateActiveAdminPassword()" class="w-full bg-slate-700 hover:bg-slate-800 text-white text-xs font-semibold py-2 rounded-lg transition shadow-sm">
+                            Perbarui Sandi Bidang
                         </button>
-                    </form>
+                    </div>
                 </div>
 
                 <!-- Tampilan Alternatif untuk Pegawai jika Panel Admin Ditutup -->
                 <div id="employee-notice" class="bg-emerald-50 border border-emerald-200 p-5 rounded-xl flex flex-col justify-center items-center text-center lg:col-span-1">
                     <div class="text-emerald-600 text-3xl mb-2"><i class="fa-solid fa-eye"></i></div>
-                    <h4 class="font-bold text-emerald-900 text-sm">Mode Tampilan Pegawai</h4>
-                    <p class="text-xs text-emerald-700 mt-1">Anda sedang masuk sebagai Pegawai. Anda hanya dapat melihat laporan secara real-time. Perubahan dan penyuntingan data memerlukan sandi Admin.</p>
+                    <h4 class="font-bold text-emerald-900 text-sm">Mode Tampilan Pengguna</h4>
+                    <p class="text-xs text-emerald-700 mt-1">Anda sedang masuk dalam mode peninjau. Akses manajemen entri data dan pengaturan sandi dibatasi khusus untuk admin bidang dan super admin.</p>
+                </div>
+            </div>
+
+            <!-- AREA CETAK LAPORAN PDF TERSEMBUNYI -->
+            <div id="pdf-printable-area" class="hidden bg-white p-8 text-slate-800 space-y-6">
+                <div class="border-b-2 border-emerald-800 pb-4 flex justify-between items-center">
+                    <div>
+                        <h2 class="text-xl font-bold text-emerald-900">BALAI BESAR POM DI BOGOR (PPPOMN)</h2>
+                        <p class="text-xs text-slate-600">Laporan Kompilasi Keuangan Take & Give Internal</p>
+                    </div>
+                    <div class="text-right text-xs text-slate-500">
+                        <p>Dicetak Pada: <span id="pdf-print-date"></span></p>
+                        <p>Status: Dokumen Resmi Internal</p>
+                    </div>
+                </div>
+
+                <!-- Ringkasan Statistik PDF -->
+                <div class="grid grid-cols-3 gap-4 text-center">
+                    <div class="bg-slate-50 p-3 rounded border">
+                        <p class="text-xs text-slate-500">Total Pemasukan</p>
+                        <p id="pdf-stat-masuk" class="font-bold text-emerald-700 text-sm">Rp 0</p>
+                    </div>
+                    <div class="bg-slate-50 p-3 rounded border">
+                        <p class="text-xs text-slate-500">Total Pengeluaran</p>
+                        <p id="pdf-stat-keluar" class="font-bold text-rose-700 text-sm">Rp 0</p>
+                    </div>
+                    <div class="bg-slate-50 p-3 rounded border">
+                        <p class="text-xs text-slate-500">Saldo Akhir Kas</p>
+                        <p id="pdf-stat-saldo" class="font-bold text-slate-800 text-sm">Rp 0</p>
+                    </div>
+                </div>
+
+                <!-- Tabel Transaksi PDF -->
+                <div>
+                    <h3 class="font-bold text-sm text-slate-700 mb-2">1. Daftar Riwayat Transaksi Keuangan</h3>
+                    <table class="w-full text-left border-collapse text-xs">
+                        <thead>
+                            <tr class="bg-emerald-800 text-white">
+                                <th class="p-2 border">Tanggal</th>
+                                <th class="p-2 border">Kategori</th>
+                                <th class="p-2 border">Uraian</th>
+                                <th class="p-2 border">Jenis</th>
+                                <th class="p-2 border text-right">Jumlah (Rp)</th>
+                            </tr>
+                        </thead>
+                        <tbody id="pdf-transaction-tbody">
+                            <!-- Diisi via JS -->
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- Tabel Log Tracking PDF -->
+                <div>
+                    <h3 class="font-bold text-sm text-slate-700 mb-2">2. Kompilasi Log Aktivitas & Perubahan Data (Audit Trail)</h3>
+                    <table class="w-full text-left border-collapse text-[10px]">
+                        <thead>
+                            <tr class="bg-slate-700 text-white">
+                                <th class="p-2 border">Waktu</th>
+                                <th class="p-2 border">Admin</th>
+                                <th class="p-2 border">Aksi</th>
+                                <th class="p-2 border">Keterangan Aktivitas</th>
+                            </tr>
+                        </thead>
+                        <tbody id="pdf-tracking-tbody">
+                            <!-- Diisi via JS -->
+                        </tbody>
+                    </table>
                 </div>
             </div>
 
@@ -158,6 +310,32 @@
                 </div>
             </div>
 
+            <!-- TABEL TRACKING / LOG HISTORI PERUBAHAN DATA -->
+            <div id="tracking-section" class="bg-white rounded-xl shadow-sm border border-slate-100 overflow-hidden hidden">
+                <div class="p-4 border-b border-slate-100 flex justify-between items-center bg-slate-50">
+                    <h3 class="font-bold text-slate-700 text-sm"><i class="fa-solid fa-clock-rotate-left mr-2 text-emerald-600"></i>Histori Perubahan Data Keuangan (Tracking)</h3>
+                    <button id="btn-clear-tracking" onclick="clearTrackingLogs()" class="text-xs text-rose-600 hover:underline font-semibold hidden">
+                        <i class="fa-solid fa-trash-can mr-1"></i>Clear All Tracking
+                    </button>
+                </div>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left border-collapse">
+                        <thead>
+                            <tr class="bg-slate-50/50 text-slate-500 text-xs uppercase tracking-wider border-b border-slate-100">
+                                <th class="p-3 font-semibold">Waktu Aktivitas</th>
+                                <th class="p-3 font-semibold">Bidang Admin</th>
+                                <th class="p-3 font-semibold">Aksi</th>
+                                <th class="p-3 font-semibold">Keterangan / Detail Transaksi</th>
+                                <th id="th-tracking-aksi" class="p-3 font-semibold text-center hidden">Kontrol Super Admin</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tracking-table-body" class="text-xs divide-y divide-slate-100">
+                            <!-- Log tracking dimasukkan via JavaScript -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
         </main>
 
         <!-- FOOTER -->
@@ -169,28 +347,57 @@
 
     </div>
 
-    <!-- MODAL GANTI PERAN & PASSWORD ADMIN -->
+    <!-- MODAL GANTI PERAN & LOGIN ADMIN / SUPER ADMIN -->
     <div id="role-modal" class="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex justify-center items-center hidden">
-        <div class="bg-white p-6 rounded-2xl shadow-xl max-w-sm w-full mx-4 space-y-4">
+        <div class="bg-white p-6 rounded-2xl shadow-xl max-w-md w-full mx-4 space-y-4 max-h-[90vh] overflow-y-auto">
             <div>
-                <h3 class="font-bold text-lg text-slate-800 mb-1">Akses Peran Pengguna</h3>
-                <p class="text-xs text-slate-500">Pilih mode tampilan atau masuk dengan Sandi Admin.</p>
+                <h3 class="font-bold text-lg text-slate-800 mb-1">Akses Pengguna & Otorisasi</h3>
+                <p class="text-xs text-slate-500">Pilih akses peninjau atau masukkan sandi khusus admin / super admin.</p>
             </div>
 
             <div class="space-y-3">
+                <!-- Mode Pegawai -->
                 <button onclick="switchRole('pegawai')" class="w-full text-left p-3 rounded-xl border border-slate-200 hover:bg-slate-50 flex items-center justify-between transition">
                     <div>
-                        <p class="font-semibold text-sm text-slate-800">Pegawai (Viewer)</p>
-                        <p class="text-xs text-slate-500">Hanya melihat dashboard.</p>
+                        <p class="font-semibold text-sm text-slate-800">Pegawai (Viewer & Tracking)</p>
+                        <p class="text-xs text-slate-500">Melihat laporan & histori perubahan data.</p>
                     </div>
                     <i class="fa-solid fa-user text-slate-400"></i>
                 </button>
 
+                <!-- Super Admin -->
+                <div class="p-3 rounded-xl border border-purple-300 bg-purple-50/60 space-y-2">
+                    <p class="font-semibold text-xs text-purple-900"><i class="fa-solid fa-user-gear mr-1"></i> Super Admin</p>
+                    <input type="password" id="pass-super" placeholder="Sandi Super Admin" class="w-full text-xs border border-purple-300 rounded-lg p-2 focus:ring-1 focus:ring-purple-500 focus:outline-none">
+                    <button onclick="verifySuperAdminLogin()" class="w-full bg-purple-600 hover:bg-purple-700 text-white text-xs font-semibold py-2 rounded-lg transition shadow-sm">
+                        Masuk Super Admin
+                    </button>
+                </div>
+
+                <!-- Admin 1: Sumbangan Sukarela -->
                 <div class="p-3 rounded-xl border border-emerald-200 bg-emerald-50/50 space-y-2">
-                    <p class="font-semibold text-sm text-emerald-900">Admin Keuangan (Editor)</p>
-                    <input type="password" id="admin-password-input" placeholder="Masukkan Sandi Admin" class="w-full text-xs border border-emerald-300 rounded-lg p-2 focus:ring-1 focus:ring-emerald-500 focus:outline-none">
-                    <button onclick="verifyAdminLogin()" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold py-2 rounded-lg transition shadow-sm">
-                        Masuk Sebagai Admin
+                    <p class="font-semibold text-xs text-emerald-900"><i class="fa-solid fa-shield-halved mr-1"></i> Admin Sumbangan Sukarela</p>
+                    <input type="password" id="pass-sukarela" placeholder="Sandi Sumbangan Sukarela" class="w-full text-xs border border-emerald-300 rounded-lg p-2 focus:ring-1 focus:ring-emerald-500 focus:outline-none">
+                    <button onclick="verifyAdminLogin('Sukarela')" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold py-2 rounded-lg transition shadow-sm">
+                        Masuk Admin Sukarela
+                    </button>
+                </div>
+
+                <!-- Admin 2: Sumbangan Sosial -->
+                <div class="p-3 rounded-xl border border-blue-200 bg-blue-50/50 space-y-2">
+                    <p class="font-semibold text-xs text-blue-900"><i class="fa-solid fa-shield-halved mr-1"></i> Admin Sumbangan Sosial</p>
+                    <input type="password" id="pass-sosial" placeholder="Sandi Sumbangan Sosial" class="w-full text-xs border border-blue-300 rounded-lg p-2 focus:ring-1 focus:ring-blue-500 focus:outline-none">
+                    <button onclick="verifyAdminLogin('Sosial')" class="w-full bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold py-2 rounded-lg transition shadow-sm">
+                        Masuk Admin Sosial
+                    </button>
+                </div>
+
+                <!-- Admin 3: Iuran Korpri -->
+                <div class="p-3 rounded-xl border border-amber-200 bg-amber-50/50 space-y-2">
+                    <p class="font-semibold text-xs text-amber-900"><i class="fa-solid fa-shield-halved mr-1"></i> Admin Iuran Korpri</p>
+                    <input type="password" id="pass-korpri" placeholder="Sandi Iuran Korpri" class="w-full text-xs border border-amber-300 rounded-lg p-2 focus:ring-1 focus:ring-amber-500 focus:outline-none">
+                    <button onclick="verifyAdminLogin('Korpri')" class="w-full bg-amber-600 hover:bg-amber-700 text-white text-xs font-semibold py-2 rounded-lg transition shadow-sm">
+                        Masuk Admin Korpri
                     </button>
                 </div>
             </div>
@@ -203,31 +410,44 @@
 
     <!-- SCRIPT APLIKASI -->
     <script>
-        // Sandi khusus Admin (dapat disesuaikan)
-        const ADMIN_PASSWORD = "Bogor@12345";
+        // Konfigurasi Sandi (Disimpan di localStorage agar permanen saat diganti)
+        let superAdminPassword = localStorage.getItem('bpom_super_pass') || "SuperAdminBogor2026";
+        let adminPasswords = JSON.parse(localStorage.getItem('bpom_admin_passwords')) || {
+            "Sukarela": "SukarelaBogor2026",
+            "Sosial": "SosialBogor2026",
+            "Korpri": "KorpriBogor2026"
+        };
 
         // State Aplikasi
         let currentRole = localStorage.getItem('bpom_role') || 'pegawai';
+        let currentAdminDivision = localStorage.getItem('bpom_division') || '';
         let transactions = JSON.parse(localStorage.getItem('bpom_transactions')) || [
             { id: 1, date: '2026-06-01', category: 'Sumbangan Sukarela', desc: 'Sumbangan sukarela bulanan ruang uji', type: 'Masuk', amount: 750000 },
             { id: 2, date: '2026-06-03', category: 'Iuran Korpri', desc: 'Iuran Korpri anggota periode Juni', type: 'Masuk', amount: 1250000 },
-            { id: 3, date: '2026-06-05', category: 'Sumbangan Sosial', desc: 'Santunan rekan kerja sakit', type: 'Keluar', amount: 500000 }
+            { id: 3, date: '2026-06-05', category: 'Sumbangan Sosial', desc: 'Santunan rekan kerja sakit', type: 'Keluar', amount: 500000 },
+            { id: 4, date: '2026-06-10', category: 'Sumbangan Sosial', desc: 'Bantuan sosial kedukaan', type: 'Keluar', amount: 300000 }
         ];
 
-        let financeChartInstance = null;
+        // State Tracking / Log Aktivitas
+        let activityLogs = JSON.parse(localStorage.getItem('bpom_activity_logs')) || [];
+
+        let incomeChartInstance = null;
+        let expenseChartInstance = null;
 
         // Inisialisasi Saat Halaman Dimuat
         document.addEventListener('DOMContentLoaded', () => {
             updateRoleUI();
             renderDashboard();
-            initChart();
+            initCharts();
         });
 
-        // Fungsi Ganti Peran & Verifikasi Sandi
+        // Fungsi Ganti Peran ke Pegawai
         function switchRole(role) {
             if (role === 'pegawai') {
                 currentRole = 'pegawai';
+                currentAdminDivision = '';
                 localStorage.setItem('bpom_role', 'pegawai');
+                localStorage.removeItem('bpom_division');
                 toggleRoleModal();
                 updateRoleUI();
                 renderDashboard();
@@ -235,18 +455,52 @@
             }
         }
 
-        function verifyAdminLogin() {
-            const inputPass = document.getElementById('admin-password-input').value;
-            if (inputPass === ADMIN_PASSWORD) {
-                currentRole = 'admin';
-                localStorage.setItem('bpom_role', 'admin');
-                document.getElementById('admin-password-input').value = '';
+        // Verifikasi Login Super Admin
+        function verifySuperAdminLogin() {
+            const inputPass = document.getElementById('pass-super').value;
+            if (inputPass === superAdminPassword) {
+                currentRole = 'super_admin';
+                currentAdminDivision = 'Super Admin';
+                localStorage.setItem('bpom_role', 'super_admin');
+                localStorage.setItem('bpom_division', 'Super Admin');
+
+                document.getElementById('pass-super').value = '';
                 toggleRoleModal();
                 updateRoleUI();
                 renderDashboard();
-                alert('Berhasil masuk sebagai Admin Keuangan!');
+                alert('Berhasil masuk sebagai Super Admin!');
             } else {
-                alert('Kata sandi admin salah! Silakan coba lagi.');
+                alert('Kata sandi Super Admin salah! Silakan coba lagi.');
+            }
+        }
+
+        // Verifikasi Login Admin Bidang
+        function verifyAdminLogin(division) {
+            let inputPass = "";
+            if (division === 'Sukarela') inputPass = document.getElementById('pass-sukarela').value;
+            if (division === 'Sosial') inputPass = document.getElementById('pass-sosial').value;
+            if (division === 'Korpri') inputPass = document.getElementById('pass-korpri').value;
+
+            if (inputPass === adminPasswords[division]) {
+                currentRole = 'admin';
+                currentAdminDivision = division;
+                localStorage.setItem('bpom_role', 'admin');
+                localStorage.setItem('bpom_division', division);
+
+                // Catat Log Login
+                addLog(division, "LOGIN", "Berhasil masuk ke panel admin bidang " + division);
+
+                // Bersihkan input password
+                document.getElementById('pass-sukarela').value = '';
+                document.getElementById('pass-sosial').value = '';
+                document.getElementById('pass-korpri').value = '';
+
+                toggleRoleModal();
+                updateRoleUI();
+                renderDashboard();
+                alert(`Berhasil masuk sebagai Admin ${division}!`);
+            } else {
+                alert(`Kata sandi untuk Admin ${division} salah! Silakan coba lagi.`);
             }
         }
 
@@ -259,26 +513,348 @@
             const roleText = document.getElementById('current-role-text');
             const adminPanel = document.getElementById('admin-panel');
             const employeeNotice = document.getElementById('employee-notice');
+            const trackingSection = document.getElementById('tracking-section');
+            const superAdminPanel = document.getElementById('super-admin-control-panel');
             const thAksi = document.getElementById('th-aksi');
+            const thTrackingAksi = document.getElementById('th-tracking-aksi');
+            const btnClearTracking = document.getElementById('btn-clear-tracking');
+            const activeAdminLabel = document.getElementById('active-admin-label');
 
             if (currentRole === 'admin') {
-                roleText.innerText = 'Admin (Editor)';
+                roleText.innerText = `Admin (${currentAdminDivision})`;
                 adminPanel.classList.remove('hidden');
                 employeeNotice.classList.add('hidden');
+                trackingSection.classList.add('hidden');
+                superAdminPanel.classList.add('hidden');
                 thAksi.classList.remove('hidden');
+                if (activeAdminLabel) activeAdminLabel.innerText = currentAdminDivision;
+            } else if (currentRole === 'super_admin') {
+                roleText.innerText = 'Super Admin (Kontrol & Kompilasi)';
+                adminPanel.classList.add('hidden');
+                employeeNotice.classList.remove('hidden');
+                trackingSection.classList.remove('hidden');
+                superAdminPanel.classList.remove('hidden');
+                thAksi.classList.add('hidden');
+                thTrackingAksi.classList.remove('hidden');
+                btnClearTracking.classList.remove('hidden');
             } else {
                 roleText.innerText = 'Pegawai (Viewer)';
                 adminPanel.classList.add('hidden');
-                employeeNotice.classList.add('hidden'); // Sembunyikan atau atur tampilan
+                employeeNotice.classList.remove('hidden');
+                trackingSection.classList.remove('hidden');
+                superAdminPanel.classList.add('hidden');
                 thAksi.classList.add('hidden');
+                thTrackingAksi.classList.add('hidden');
+                btnClearTracking.classList.add('hidden');
             }
         }
 
-        // Render Data dan Statistik
+        // ==========================================
+        // FITUR GANTI PASSWORD (ADMIN & SUPER ADMIN)
+        // ==========================================
+        function updateSuperAdminPassword() {
+            if (currentRole !== 'super_admin') {
+                alert('Akses ditolak!');
+                return;
+            }
+
+            const newPass = document.getElementById('new-super-pass').value.trim();
+            if (!newPass || newPass.length < 5) {
+                alert('Kata sandi baru minimal harus terdiri dari 5 karakter.');
+                return;
+            }
+
+            if (confirm('Apakah Anda yakin ingin mengubah sandi Super Admin?')) {
+                superAdminPassword = newPass;
+                localStorage.setItem('bpom_super_pass', superAdminPassword);
+                document.getElementById('new-super-pass').value = '';
+                alert('Kata sandi Super Admin berhasil diperbarui!');
+            }
+        }
+
+        function updateActiveAdminPassword() {
+            if (currentRole !== 'admin' || !currentAdminDivision) {
+                alert('Akses ditolak!');
+                return;
+            }
+
+            const newPass = document.getElementById('new-admin-pass').value.trim();
+            if (!newPass || newPass.length < 5) {
+                alert('Kata sandi baru minimal harus terdiri dari 5 karakter.');
+                return;
+            }
+
+            if (confirm(`Apakah Anda yakin ingin mengubah sandi untuk Admin ${currentAdminDivision}?`)) {
+                adminPasswords[currentAdminDivision] = newPass;
+                localStorage.setItem('bpom_admin_passwords', JSON.stringify(adminPasswords));
+                document.getElementById('new-admin-pass').value = '';
+                alert(`Kata sandi untuk Admin ${currentAdminDivision} berhasil diperbarui!`);
+            }
+        }
+
+        // ==========================================
+        // FITUR BACKUP & RESTORE DATA JSON (SUPER ADMIN)
+        // ==========================================
+        function backupDataJSON() {
+            if (currentRole !== 'super_admin') {
+                alert('Akses ditolak! Hanya Super Admin yang dapat melakukan backup data.');
+                return;
+            }
+
+            const backupPayload = {
+                app: "Take & Give BPOM Bogor",
+                version: "2.2",
+                backupDate: new Date().toISOString(),
+                transactions: transactions,
+                activityLogs: activityLogs,
+                superAdminPassword: superAdminPassword,
+                adminPasswords: adminPasswords
+            };
+
+            const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(backupPayload, null, 2));
+            const downloadAnchor = document.createElement('a');
+            downloadAnchor.setAttribute("href", dataStr);
+            downloadAnchor.setAttribute("download", `backup_keuangan_bpom_${new Date().toISOString().split('T')[0]}.json`);
+            document.body.appendChild(downloadAnchor);
+            downloadAnchor.click();
+            downloadAnchor.remove();
+            alert('File backup JSON berhasil diunduh.');
+        }
+
+        function restoreDataJSON(event) {
+            if (currentRole !== 'super_admin') {
+                alert('Akses ditolak! Hanya Super Admin yang dapat melakukan restore data.');
+                return;
+            }
+
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const parsed = JSON.parse(e.target.result);
+                    if (!parsed.transactions || !parsed.activityLogs) {
+                        throw new Error('Format file backup tidak valid.');
+                    }
+
+                    if (confirm(`Peringatan: Restore data akan menimpa seluruh data sistem saat ini. Lanjutkan?`)) {
+                        transactions = parsed.transactions;
+                        activityLogs = parsed.activityLogs;
+                        if (parsed.superAdminPassword) {
+                            superAdminPassword = parsed.superAdminPassword;
+                            localStorage.setItem('bpom_super_pass', superAdminPassword);
+                        }
+                        if (parsed.adminPasswords) {
+                            adminPasswords = parsed.adminPasswords;
+                            localStorage.setItem('bpom_admin_passwords', JSON.stringify(adminPasswords));
+                        }
+
+                        localStorage.setItem('bpom_transactions', JSON.stringify(transactions));
+                        localStorage.setItem('bpom_activity_logs', JSON.stringify(activityLogs));
+
+                        renderDashboard();
+                        alert('Data sistem berhasil dipulihkan (Restore) dari file backup!');
+                    }
+                } catch (err) {
+                    alert('Gagal memulihkan data: File JSON rusak atau format tidak dikenali.');
+                }
+                event.target.value = '';
+            };
+            reader.readAsText(file);
+        }
+
+        // ==========================================
+        // FITUR KOMPILASI LAPORAN EXCEL (.xlsx)
+        // ==========================================
+        function exportToExcel() {
+            if (currentRole !== 'super_admin') {
+                alert('Akses ditolak! Hanya Super Admin yang dapat mengexport laporan ke Excel.');
+                return;
+            }
+
+            const txDataForExcel = transactions.map((t, index) => ({
+                No: index + 1,
+                Tanggal: t.date,
+                Kategori: t.category,
+                Uraian: t.desc,
+                Jenis: t.type,
+                Jumlah: t.amount
+            }));
+
+            const logDataForExcel = activityLogs.map((l, index) => ({
+                No: index + 1,
+                Waktu: l.time,
+                Admin: l.division,
+                Aksi: l.action,
+                Keterangan: l.details
+            }));
+
+            const wb = XLSX.utils.book_new();
+            const wsTx = XLSX.utils.json_to_sheet(txDataForExcel);
+            const wsLog = XLSX.utils.json_to_sheet(logDataForExcel);
+
+            XLSX.utils.book_append_sheet(wb, wsTx, "Riwayat Transaksi");
+            XLSX.utils.book_append_sheet(wb, wsLog, "Log Tracking Audit");
+
+            XLSX.writeFile(wb, `Kompilasi_Keuangan_BPOM_Bogor_${new Date().toISOString().split('T')[0]}.xlsx`);
+            alert('File laporan Excel berhasil dikompilasi dan diunduh.');
+        }
+
+        // ==========================================
+        // FITUR KOMPILASI LAPORAN PDF (.pdf)
+        // ==========================================
+        function exportToPDF() {
+            if (currentRole !== 'super_admin') {
+                alert('Akses ditolak! Hanya Super Admin yang dapat mengunduh laporan PDF.');
+                return;
+            }
+
+            let totalMasuk = 0;
+            let totalKeluar = 0;
+            transactions.forEach(t => {
+                if (t.type === 'Masuk') totalMasuk += t.amount;
+                else totalKeluar += t.amount;
+            });
+            let saldo = totalMasuk - totalKeluar;
+
+            document.getElementById('pdf-print-date').innerText = new Date().toLocaleDateString('id-ID', { dateStyle: 'full' });
+            document.getElementById('pdf-stat-masuk').innerText = formatRupiah(totalMasuk);
+            document.getElementById('pdf-stat-keluar').innerText = formatRupiah(totalKeluar);
+            document.getElementById('pdf-stat-saldo').innerText = formatRupiah(saldo);
+
+            const pdfTxTbody = document.getElementById('pdf-transaction-tbody');
+            pdfTxTbody.innerHTML = '';
+            transactions.forEach(t => {
+                pdfTxTbody.innerHTML += `
+                    <tr class="border-b">
+                        <td class="p-1.5">${t.date}</td>
+                        <td class="p-1.5">${t.category}</td>
+                        <td class="p-1.5">${t.desc}</td>
+                        <td class="p-1.5 font-semibold">${t.type}</td>
+                        <td class="p-1.5 text-right font-bold">${formatRupiah(t.amount)}</td>
+                    </tr>
+                `;
+            });
+
+            const pdfLogTbody = document.getElementById('pdf-tracking-tbody');
+            pdfLogTbody.innerHTML = '';
+            if (activityLogs.length === 0) {
+                pdfLogTbody.innerHTML = `<tr><td colspan="4" class="p-2 text-center text-slate-400">Belum ada log tracking.</td></tr>`;
+            } else {
+                activityLogs.slice(0, 30).forEach(l => {
+                    pdfLogTbody.innerHTML += `
+                        <tr class="border-b">
+                            <td class="p-1 font-mono">${l.time}</td>
+                            <td class="p-1 font-semibold">${l.division}</td>
+                            <td class="p-1">${l.action}</td>
+                            <td class="p-1">${l.details}</td>
+                        </tr>
+                    `;
+                });
+            }
+
+            const printableArea = document.getElementById('pdf-printable-area');
+            printableArea.classList.remove('hidden');
+
+            const opt = {
+                margin:       0.5,
+                filename:     `Kompilasi_Laporan_Keuangan_BPOM_${new Date().toISOString().split('T')[0]}.pdf`,
+                image:        { type: 'jpeg', quality: 0.98 },
+                html2canvas:  { scale: 2, useCORS: true },
+                jsPDF:        { unit: 'in', format: 'a4', orientation: 'portrait' }
+            };
+
+            html2pdf().from(printableArea).set(opt).save().then(() => {
+                printableArea.classList.add('hidden');
+                alert('Laporan PDF berhasil dikompilasi dan diunduh.');
+            }).catch(err => {
+                printableArea.classList.add('hidden');
+                alert('Terjadi kesalahan saat menghasilkan PDF.');
+            });
+        }
+
+        // Fungsi Pencatatan Log Aktivitas
+        function addLog(division, action, details) {
+            const timestamp = new Date().toLocaleString('id-ID', { dateStyle: 'medium', timeStyle: 'medium' });
+            const newLog = {
+                id: Date.now(),
+                time: timestamp,
+                division: division,
+                action: action,
+                details: details
+            };
+            activityLogs.unshift(newLog);
+            localStorage.setItem('bpom_activity_logs', JSON.stringify(activityLogs));
+            renderTrackingTable();
+        }
+
+        function clearTrackingLogs() {
+            if (currentRole !== 'super_admin') {
+                alert('Akses ditolak!');
+                return;
+            }
+            if (confirm('Apakah Anda yakin ingin membersihkan SELURUH riwayat log tracking?')) {
+                activityLogs = [];
+                localStorage.removeItem('bpom_activity_logs');
+                renderTrackingTable();
+                alert('Seluruh data tracking berhasil dibersihkan.');
+            }
+        }
+
+        function deleteTrackingLog(id) {
+            if (currentRole !== 'super_admin') return;
+            if (confirm('Hapus item log tracking ini?')) {
+                activityLogs = activityLogs.filter(log => log.id !== id);
+                localStorage.setItem('bpom_activity_logs', JSON.stringify(activityLogs));
+                renderTrackingTable();
+            }
+        }
+
+        function renderTrackingTable() {
+            const tbody = document.getElementById('tracking-table-body');
+            const thTrackingAksi = document.getElementById('th-tracking-aksi');
+            if (!tbody) return;
+            tbody.innerHTML = '';
+
+            if (activityLogs.length === 0) {
+                const colSpan = (currentRole === 'super_admin') ? 5 : 4;
+                tbody.innerHTML = `<tr><td colspan="${colSpan}" class="p-4 text-center text-slate-400">Belum ada histori perubahan data tercatat.</td></tr>`;
+                return;
+            }
+
+            activityLogs.forEach(log => {
+                let badgeColor = "bg-slate-100 text-slate-700";
+                if (log.action === 'TAMBAH') badgeColor = "bg-emerald-100 text-emerald-700";
+                else if (log.action === 'UPDATE') badgeColor = "bg-blue-100 text-blue-700";
+                else if (log.action === 'HAPUS') badgeColor = "bg-rose-100 text-rose-700";
+                else if (log.action === 'LOGIN') badgeColor = "bg-amber-100 text-amber-700";
+
+                const tr = document.createElement('tr');
+                tr.className = 'hover:bg-slate-50 transition';
+                tr.innerHTML = `
+                    <td class="p-3 text-slate-500 font-mono">${log.time}</td>
+                    <td class="p-3 font-semibold text-slate-700">Admin ${log.division}</td>
+                    <td class="p-3"><span class="px-2 py-0.5 rounded font-bold text-[10px] ${badgeColor}">${log.action}</span></td>
+                    <td class="p-3 text-slate-600">${log.details}</td>
+                `;
+
+                if (currentRole === 'super_admin') {
+                    tr.innerHTML += `
+                        <td class="p-3 text-center">
+                            <button onclick="deleteTrackingLog(${log.id})" class="text-rose-500 hover:text-rose-700 p-1.5" title="Hapus Log Ini"><i class="fa-solid fa-trash"></i></button>
+                        </td>
+                    `;
+                }
+                tbody.appendChild(tr);
+            });
+        }
+
         function renderDashboard() {
             renderStats();
             renderTable();
-            updateChart();
+            renderTrackingTable();
+            updateCharts();
         }
 
         function renderStats() {
@@ -337,11 +913,10 @@
             });
         }
 
-        // Form Submit Handler (Tambah & Update / Edit Data)
         function handleFormSubmit(e) {
             e.preventDefault();
             if (currentRole !== 'admin') {
-                alert('Akses ditolak! Hanya admin yang dapat merubah data.');
+                alert('Akses ditolak!');
                 return;
             }
 
@@ -352,16 +927,15 @@
             const desc = document.getElementById('tx-desc').value;
 
             if (id) {
-                // Proses Update Data yang Ada
                 transactions = transactions.map(t => {
                     if (t.id == id) {
                         return { ...t, type, category, amount, desc };
                     }
                     return t;
                 });
+                addLog(currentAdminDivision, "UPDATE", `Memperbarui transaksi [${category}] senilai ${formatRupiah(amount)} (${desc})`);
                 alert('Transaksi berhasil diperbarui!');
             } else {
-                // Proses Tambah Data Baru
                 const newTx = {
                     id: Date.now(),
                     date: new Date().toISOString().split('T')[0],
@@ -371,6 +945,7 @@
                     amount
                 };
                 transactions.push(newTx);
+                addLog(currentAdminDivision, "TAMBAH", `Menambah transaksi ${type} [${category}] senilai ${formatRupiah(amount)} (${desc})`);
                 alert('Transaksi baru berhasil disimpan!');
             }
 
@@ -379,7 +954,6 @@
             renderDashboard();
         }
 
-        // Memuat Data ke Form untuk Diedit
         function editTransaction(id) {
             if (currentRole !== 'admin') return;
             const tx = transactions.find(t => t.id === id);
@@ -397,7 +971,6 @@
             document.getElementById('btn-cancel-edit').classList.remove('hidden');
         }
 
-        // Reset Form ke Mode Tambah Baru
         function resetForm() {
             document.getElementById('transaction-form').reset();
             document.getElementById('tx-id').value = '';
@@ -407,25 +980,30 @@
             document.getElementById('btn-cancel-edit').classList.add('hidden');
         }
 
-        // Hapus Transaksi
         function deleteTransaction(id) {
             if (currentRole !== 'admin') return;
-            if (confirm('Apakah Anda yakin ingin menghapus transaksi ini?')) {
+            const tx = transactions.find(t => t.id === id);
+            if (confirm('Hapus transaksi ini?')) {
                 transactions = transactions.filter(t => t.id !== id);
                 localStorage.setItem('bpom_transactions', JSON.stringify(transactions));
+                
+                if (tx) {
+                    addLog(currentAdminDivision, "HAPUS", `Menghapus transaksi [${tx.category}] senilai ${formatRupiah(tx.amount)} (${tx.desc})`);
+                }
                 renderDashboard();
             }
         }
 
-        // Grafik Inisialisasi
-        function initChart() {
-            const ctx = document.getElementById('financeChart').getContext('2d');
-            financeChartInstance = new Chart(ctx, {
+        function initCharts() {
+            const categories = ['Sumbangan Sukarela', 'Sumbangan Sosial', 'Iuran Korpri', 'Lainnya'];
+
+            const ctxIncome = document.getElementById('incomeChart').getContext('2d');
+            incomeChartInstance = new Chart(ctxIncome, {
                 type: 'bar',
                 data: {
-                    labels: ['Sumbangan Sukarela', 'Sumbangan Sosial', 'Iuran Korpri', 'Lainnya'],
+                    labels: categories,
                     datasets: [{
-                        label: 'Total Masuk (Rp)',
+                        label: 'Pemasukan (Rp)',
                         data: [0, 0, 0, 0],
                         backgroundColor: '#10b981',
                         borderRadius: 6
@@ -434,32 +1012,58 @@
                 options: {
                     responsive: true,
                     maintainAspectRatio: false,
-                    plugins: {
-                        legend: { display: false }
-                    },
-                    scales: {
-                        y: { beginAtZero: true }
-                    }
+                    plugins: { legend: { display: false } },
+                    scales: { y: { beginAtZero: true } }
                 }
             });
-            updateChart();
+
+            const ctxExpense = document.getElementById('expenseChart').getContext('2d');
+            expenseChartInstance = new Chart(ctxExpense, {
+                type: 'bar',
+                data: {
+                    labels: categories,
+                    datasets: [{
+                        label: 'Pengeluaran (Rp)',
+                        data: [0, 0, 0, 0],
+                        backgroundColor: '#f43f5e',
+                        borderRadius: 6
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: false } },
+                    scales: { y: { beginAtZero: true } }
+                }
+            });
+
+            updateCharts();
         }
 
-        function updateChart() {
-            if (!financeChartInstance) return;
+        function updateCharts() {
+            if (!incomeChartInstance || !expenseChartInstance) return;
 
-            let categories = ['Sumbangan Sukarela', 'Sumbangan Sosial', 'Iuran Korpri', 'Lainnya'];
-            let totals = categories.map(cat => {
+            const categories = ['Sumbangan Sukarela', 'Sumbangan Sosial', 'Iuran Korpri', 'Lainnya'];
+
+            let incomeTotals = categories.map(cat => {
                 return transactions
                     .filter(t => t.category === cat && t.type === 'Masuk')
                     .reduce((sum, t) => sum + t.amount, 0);
             });
 
-            financeChartInstance.data.datasets[0].data = totals;
-            financeChartInstance.update();
+            let expenseTotals = categories.map(cat => {
+                return transactions
+                    .filter(t => t.category === cat && t.type === 'Keluar')
+                    .reduce((sum, t) => sum + t.amount, 0);
+            });
+
+            incomeChartInstance.data.datasets[0].data = incomeTotals;
+            incomeChartInstance.update();
+
+            expenseChartInstance.data.datasets[0].data = expenseTotals;
+            expenseChartInstance.update();
         }
 
-        // Utilitas Format Rupiah
         function formatRupiah(number) {
             return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(number);
         }
