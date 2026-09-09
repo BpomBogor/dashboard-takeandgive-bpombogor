@@ -1,0 +1,399 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard Keuangan Take & Give - BPOM Bogor</title>
+    <!-- Tailwind CSS untuk Desain Modern dan Responsif -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome untuk Ikon -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Chart.js untuk Grafik Keuangan -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body class="bg-slate-50 font-sans antialiased text-slate-800">
+
+    <!-- Wrapper Utama -->
+    <div id="app" class="min-h-screen flex flex-col">
+
+        <!-- HEADER / NAVBAR -->
+        <header class="bg-emerald-800 text-white shadow-md sticky top-0 z-50">
+            <div class="max-w-7xl mx-auto px-4 py-3 flex justify-between items-center">
+                <div class="flex items-center space-x-3">
+                    <div class="bg-white p-2 rounded-lg text-emerald-800 font-bold">
+                        <i class="fa-solid fa-chart-pie text-xl"></i>
+                    </div>
+                    <div>
+                        <h1 class="font-bold text-lg leading-tight">Take & Give BPOM Bogor</h1>
+                        <p class="text-xs text-emerald-200">Dashboard Transparansi Keuangan Internal</p>
+                    </div>
+                </div>
+                <div class="flex items-center space-x-4">
+                    <div id="user-badge" class="text-sm bg-emerald-700 px-3 py-1.5 rounded-full border border-emerald-600 flex items-center space-x-2">
+                        <i class="fa-solid fa-user-shield"></i>
+                        <span id="current-role-text">Memuat...</span>
+                    </div>
+                    <button onclick="toggleRoleModal()" class="bg-emerald-600 hover:bg-emerald-500 text-xs px-3 py-1.5 rounded font-medium transition">
+                        Ganti Peran
+                    </button>
+                </div>
+            </div>
+        </header>
+
+        <!-- KONTEN UTAMA -->
+        <main class="max-w-7xl mx-auto px-4 py-6 flex-grow w-full space-y-6">
+
+            <!-- KARTU RINGKASAN (KPI CARDS) -->
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+                <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-100 flex items-center space-x-4">
+                    <div class="bg-emerald-100 text-emerald-600 p-3 rounded-lg"><i class="fa-solid fa-wallet text-xl"></i></div>
+                    <div>
+                        <p class="text-xs text-slate-500 font-medium uppercase">Total Saldo Kas</p>
+                        <h3 id="stat-saldo" class="text-xl font-bold text-slate-800">Rp 0</h3>
+                    </div>
+                </div>
+                <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-100 flex items-center space-x-4">
+                    <div class="bg-blue-100 text-blue-600 p-3 rounded-lg"><i class="fa-solid fa-hand-holding-dollar text-xl"></i></div>
+                    <div>
+                        <p class="text-xs text-slate-500 font-medium uppercase">Total Pemasukan</p>
+                        <h3 id="stat-masuk" class="text-xl font-bold text-slate-800">Rp 0</h3>
+                    </div>
+                </div>
+                <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-100 flex items-center space-x-4">
+                    <div class="bg-rose-100 text-rose-600 p-3 rounded-lg"><i class="fa-solid fa-arrow-trend-down text-xl"></i></div>
+                    <div>
+                        <p class="text-xs text-slate-500 font-medium uppercase">Total Pengeluaran</p>
+                        <h3 id="stat-keluar" class="text-xl font-bold text-slate-800">Rp 0</h3>
+                    </div>
+                </div>
+                <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-100 flex items-center space-x-4">
+                    <div class="bg-amber-100 text-amber-600 p-3 rounded-lg"><i class="fa-solid fa-file-invoice text-xl"></i></div>
+                    <div>
+                        <p class="text-xs text-slate-500 font-medium uppercase">Jumlah Transaksi</p>
+                        <h3 id="stat-trx" class="text-xl font-bold text-slate-800">0</h3>
+                    </div>
+                </div>
+            </div>
+
+            <!-- GRAFIK & PANEL INPUT (ADMIN ONLY) -->
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <!-- Grafik -->
+                <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-100 lg:col-span-2 flex flex-col justify-between">
+                    <h3 class="font-bold text-slate-700 mb-4"><i class="fa-solid fa-chart-line mr-2 text-emerald-600"></i>Grafik Keuangan Berdasarkan Kategori</h3>
+                    <div class="relative h-64 w-full">
+                        <canvas id="financeChart"></canvas>
+                    </div>
+                </div>
+
+                <!-- Panel Form Input (Hanya Admin) -->
+                <div id="admin-panel" class="bg-white p-5 rounded-xl shadow-sm border border-slate-100 hidden">
+                    <h3 class="font-bold text-slate-700 mb-3"><i class="fa-solid fa-pen-to-square mr-2 text-emerald-600"></i>Entri Transaksi Baru</h3>
+                    <form id="transaction-form" onsubmit="handleFormSubmit(event)" class="space-y-3">
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-600 mb-1">Jenis Transaksi</label>
+                            <select id="tx-type" class="w-full text-sm border border-slate-300 rounded-lg p-2 focus:ring-2 focus:ring-emerald-500 focus:outline-none">
+                                <option value="Masuk">Pemasukan</option>
+                                <option value="Keluar">Pengeluaran</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-600 mb-1">Kategori Sumber</label>
+                            <select id="tx-category" class="w-full text-sm border border-slate-300 rounded-lg p-2 focus:ring-2 focus:ring-emerald-500 focus:outline-none">
+                                <option value="Sumbangan Sukarela">Sumbangan Sukarela</option>
+                                <option value="Sumbangan Sosial">Sumbangan Sosial</option>
+                                <option value="Iuran Korpri">Iuran Korpri</option>
+                                <option value="Lainnya">Lainnya</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-600 mb-1">Jumlah (Rp)</label>
+                            <input type="number" id="tx-amount" min="1" required placeholder="Contoh: 50000" class="w-full text-sm border border-slate-300 rounded-lg p-2 focus:ring-2 focus:ring-emerald-500 focus:outline-none">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-600 mb-1">Keterangan / Uraian</label>
+                            <input type="text" id="tx-desc" required placeholder="Contoh: Iuran bulan Januari" class="w-full text-sm border border-slate-300 rounded-lg p-2 focus:ring-2 focus:ring-emerald-500 focus:outline-none">
+                        </div>
+                        <button type="submit" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-semibold py-2 rounded-lg transition shadow-sm">
+                            Simpan Transaksi
+                        </button>
+                    </form>
+                </div>
+
+                <!-- Tampilan Alternatif untuk Pegawai jika Panel Admin Ditutup -->
+                <div id="employee-notice" class="bg-emerald-50 border border-emerald-200 p-5 rounded-xl flex flex-col justify-center items-center text-center lg:col-span-1">
+                    <div class="text-emerald-600 text-3xl mb-2"><i class="fa-solid fa-eye"></i></div>
+                    <h4 class="font-bold text-emerald-900 text-sm">Mode Tampilan Pegawai</h4>
+                    <p class="text-xs text-emerald-700 mt-1">Anda sedang masuk sebagai Pegawai. Anda hanya dapat melihat laporan secara real-time. Perubahan data hanya dapat dilakukan oleh akun Admin.</p>
+                </div>
+            </div>
+
+            <!-- TABEL RIWAYAT TRANSAKSI -->
+            <div class="bg-white rounded-xl shadow-sm border border-slate-100 overflow-hidden">
+                <div class="p-4 border-b border-slate-100 flex justify-between items-center">
+                    <h3 class="font-bold text-slate-700"><i class="fa-solid fa-list-ul mr-2 text-emerald-600"></i>Riwayat Transaksi Keuangan</h3>
+                    <div class="flex space-x-2">
+                        <input type="text" id="search-input" onkeyup="renderTable()" placeholder="Cari keterangan..." class="text-xs border border-slate-300 rounded-lg px-3 py-1.5 focus:outline-none focus:ring-1 focus:ring-emerald-500">
+                    </div>
+                </div>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left border-collapse">
+                        <thead>
+                            <tr class="bg-slate-50 text-slate-500 text-xs uppercase tracking-wider border-b border-slate-100">
+                                <th class="p-3 font-semibold">Tanggal</th>
+                                <th class="p-3 font-semibold">Kategori</th>
+                                <th class="p-3 font-semibold">Uraian</th>
+                                <th class="p-3 font-semibold">Jenis</th>
+                                <th class="p-3 font-semibold text-right">Jumlah (Rp)</th>
+                                <th id="th-aksi" class="p-3 font-semibold text-center hidden">Aksi</th>
+                            </tr>
+                        </thead>
+                        <tbody id="transaction-table-body" class="text-sm divide-y divide-slate-100">
+                            <!-- Data dimasukkan via JavaScript -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+        </main>
+
+        <!-- FOOTER -->
+        <footer class="bg-white border-t border-slate-200 py-4 mt-auto">
+            <div class="max-w-7xl mx-auto px-4 text-center text-xs text-slate-500">
+                &copy; 2026 PPPOMN / Balai Besar POM di Bogor. Sistem Pengelolaan Keuangan Take & Give.
+            </div>
+        </footer>
+
+    </div>
+
+    <!-- MODAL GANTI PERAN (SIMULASI LOGIN) -->
+    <div id="role-modal" class="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex justify-center items-center hidden">
+        <div class="bg-white p-6 rounded-2xl shadow-xl max-w-sm w-full mx-4">
+            <h3 class="font-bold text-lg text-slate-800 mb-2">Pilih Peran Pengguna</h3>
+            <p class="text-xs text-slate-500 mb-4">Simulasi akses sistem dashboard untuk kebutuhan uji coba.</p>
+            <div class="space-y-2">
+                <button onclick="switchRole('pegawai')" class="w-full text-left p-3 rounded-xl border border-slate-200 hover:bg-slate-50 flex items-center justify-between transition">
+                    <div>
+                        <p class="font-semibold text-sm text-slate-800">Pegawai (Viewer)</p>
+                        <p class="text-xs text-slate-500">Hanya dapat melihat dashboard.</p>
+                    </div>
+                    <i class="fa-solid fa-user text-slate-400"></i>
+                </button>
+                <button onclick="switchRole('admin')" class="w-full text-left p-3 rounded-xl border border-emerald-200 bg-emerald-50 hover:bg-emerald-100 flex items-center justify-between transition">
+                    <div>
+                        <p class="font-semibold text-sm text-emerald-900">Admin Keuangan (Editor)</p>
+                        <p class="text-xs text-emerald-700">Dapat menambah & menghapus data.</p>
+                    </div>
+                    <i class="fa-solid fa-user-shield text-emerald-600"></i>
+                </button>
+            </div>
+            <button onclick="toggleRoleModal()" class="w-full mt-4 bg-slate-200 hover:bg-slate-300 text-slate-700 text-xs font-semibold py-2 rounded-lg transition">
+                Tutup
+            </button>
+        </div>
+    </div>
+
+    <!-- SCRIPT APLIKASI -->
+    <script>
+        // State Aplikasi
+        let currentRole = localStorage.getItem('bpom_role') || 'pegawai'; // Default pegawai
+        let transactions = JSON.parse(localStorage.getItem('bpom_transactions')) || [
+            { id: 1, date: '2026-06-01', category: 'Sumbangan Sukarela', desc: 'Sumbangan sukarela bulanan ruang uji', type: 'Masuk', amount: 750000 },
+            { id: 2, date: '2026-06-03', category: 'Iuran Korpri', desc: 'Iuran Korpri anggota periode Juni', type: 'Masuk', amount: 1250000 },
+            { id: 3, date: '2026-06-05', category: 'Sumbangan Sosial', desc: 'Santunan rekan kerja sakit', type: 'Keluar', amount: 500000 }
+        ];
+
+        let financeChartInstance = null;
+
+        // Inisialisasi Saat Halaman Dimuat
+        document.addEventListener('DOMContentLoaded', () => {
+            updateRoleUI();
+            renderDashboard();
+            initChart();
+        });
+
+        // Fungsi Ganti Peran
+        function switchRole(role) {
+            currentRole = role;
+            localStorage.setItem('bpom_role', role);
+            toggleRoleModal();
+            updateRoleUI();
+            renderDashboard();
+        }
+
+        function toggleRoleModal() {
+            const modal = document.getElementById('role-modal');
+            modal.classList.toggle('hidden');
+        }
+
+        function updateRoleUI() {
+            const roleText = document.getElementById('current-role-text');
+            const adminPanel = document.getElementById('admin-panel');
+            const employeeNotice = document.getElementById('employee-notice');
+            const thAksi = document.getElementById('th-aksi');
+
+            if (currentRole === 'admin') {
+                roleText.innerText = 'Admin (Editor)';
+                adminPanel.classList.remove('hidden');
+                employeeNotice.classList.add('hidden');
+                thAksi.classList.remove('hidden');
+            } else {
+                roleText.innerText = 'Pegawai (Viewer)';
+                adminPanel.classList.add('hidden');
+                employeeNotice.classList.remove('hidden');
+                thAksi.classList.add('hidden');
+            }
+        }
+
+        // Render Data dan Statistik
+        function renderDashboard() {
+            renderStats();
+            renderTable();
+            updateChart();
+        }
+
+        function renderStats() {
+            let totalMasuk = 0;
+            let totalKeluar = 0;
+
+            transactions.forEach(t => {
+                if (t.type === 'Masuk') totalMasuk += t.amount;
+                else totalKeluar += t.amount;
+            });
+
+            let saldo = totalMasuk - totalKeluar;
+
+            document.getElementById('stat-saldo').innerText = formatRupiah(saldo);
+            document.getElementById('stat-masuk').innerText = formatRupiah(totalMasuk);
+            document.getElementById('stat-keluar').innerText = formatRupiah(totalKeluar);
+            document.getElementById('stat-trx').innerText = transactions.length;
+        }
+
+        function renderTable() {
+            const tbody = document.getElementById('transaction-table-body');
+            const keyword = document.getElementById('search-input').value.toLowerCase();
+            tbody.innerHTML = '';
+
+            const filtered = transactions.filter(t => t.desc.toLowerCase().includes(keyword) || t.category.toLowerCase().includes(keyword));
+
+            if (filtered.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="6" class="p-4 text-center text-xs text-slate-400">Tidak ada data transaksi ditemukan.</td></tr>`;
+                return;
+            }
+
+            // Urutkan dari terbaru
+            filtered.sort((a, b) => new Date(b.date) - new Date(a.date)).forEach(t => {
+                const tr = document.createElement('tr');
+                tr.className = 'hover:bg-slate-50/80 transition';
+                
+                let badgeClass = t.type === 'Masuk' ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700';
+                let amountSign = t.type === 'Masuk' ? '+' : '-';
+
+                tr.innerHTML = `
+                    <td class="p-3 text-xs text-slate-600">${t.date}</td>
+                    <td class="p-3 text-xs font-medium text-slate-700">${t.category}</td>
+                    <td class="p-3 text-xs text-slate-600">${t.desc}</td>
+                    <td class="p-3 text-xs"><span class="px-2 py-0.5 rounded-full font-semibold ${badgeClass}">${t.type}</span></td>
+                    <td class="p-3 text-xs font-bold text-right ${t.type === 'Masuk' ? 'text-emerald-600' : 'text-rose-600'}">${amountSign} ${formatRupiah(t.amount)}</td>
+                `;
+
+                if (currentRole === 'admin') {
+                    tr.innerHTML += `
+                        <td class="p-3 text-xs text-center">
+                            <button onclick="deleteTransaction(${t.id})" class="text-rose-500 hover:text-rose-700 px-2 py-1"><i class="fa-solid fa-trash"></i></button>
+                        </td>
+                    `;
+                }
+                tbody.appendChild(tr);
+            });
+        }
+
+        // Form Submit Handler (Admin Only)
+        function handleFormSubmit(e) {
+            e.preventDefault();
+            if (currentRole !== 'admin') {
+                alert('Akses ditolak! Hanya admin yang dapat merubah data.');
+                return;
+            }
+
+            const type = document.getElementById('tx-type').value;
+            const category = document.getElementById('tx-category').value;
+            const amount = parseFloat(document.getElementById('tx-amount').value);
+            const desc = document.getElementById('tx-desc').value;
+            const date = new Date().toISOString().split('T')[0];
+
+            const newTx = {
+                id: Date.now(),
+                date,
+                category,
+                desc,
+                type,
+                amount
+            };
+
+            transactions.push(newTx);
+            localStorage.setItem('bpom_transactions', JSON.stringify(transactions));
+
+            document.getElementById('transaction-form').reset();
+            renderDashboard();
+            alert('Transaksi berhasil disimpan!');
+        }
+
+        // Hapus Transaksi
+        function deleteTransaction(id) {
+            if (currentRole !== 'admin') return;
+            if (confirm('Apakah Anda yakin ingin menghapus transaksi ini?')) {
+                transactions = transactions.filter(t => t.id !== id);
+                localStorage.setItem('bpom_transactions', JSON.stringify(transactions));
+                renderDashboard();
+            }
+        }
+
+        // Grafik Inisialisasi
+        function initChart() {
+            const ctx = document.getElementById('financeChart').getContext('2d');
+            financeChartInstance = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: ['Sumbangan Sukarela', 'Sumbangan Sosial', 'Iuran Korpri', 'Lainnya'],
+                    datasets: [{
+                        label: 'Total Masuk (Rp)',
+                        data: [0, 0, 0, 0],
+                        backgroundColor: '#10b981',
+                        borderRadius: 6
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false }
+                    },
+                    scales: {
+                        y: { beginAtZero: true }
+                    }
+                }
+            });
+            updateChart();
+        }
+
+        function updateChart() {
+            if (!financeChartInstance) return;
+
+            let categories = ['Sumbangan Sukarela', 'Sumbangan Sosial', 'Iuran Korpri', 'Lainnya'];
+            let totals = categories.map(cat => {
+                return transactions
+                    .filter(t => t.category === cat && t.type === 'Masuk')
+                    .reduce((sum, t) => sum + t.amount, 0);
+            });
+
+            financeChartInstance.data.datasets[0].data = totals;
+            financeChartInstance.update();
+        }
+
+        // Utilitas Format Rupiah
+        function formatRupiah(number) {
+            return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(number);
+        }
+    </script>
+</body>
+</html>
