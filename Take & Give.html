@@ -14,10 +14,9 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <!-- jsPDF & html2pdf untuk Export ke PDF -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
-    
-    <!-- FIREBASE SDK (SINKRONISASI REAL-TIME LINTAS PERANGKAT) -->
-    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+    <!-- Firebase App & Realtime Database SDK (Modular/Compat) -->
+<script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-database-compat.js"></script>
 </head>
 <body class="bg-slate-50 font-sans antialiased text-slate-800">
 
@@ -412,28 +411,9 @@
         </div>
     </div>
 
-    <!-- SCRIPT APLIKASI TERHUBUNG FIREBASE REAL-TIME -->
+    <!-- SCRIPT APLIKASI -->
     <script>
-        // ==========================================
-        // 1. KONFIGURASI FIREBASE REALTIME DATABASE
-        // Ganti dengan konfigurasi dari Firebase Console Anda
-        // ==========================================
-        const firebaseConfig = {
-            apiKey: "AIzaSyYOUR_API_KEY_HERE",
-            authDomain: "your-app-name.firebaseapp.com",
-            databaseURL: "https://your-app-name-default-rtdb.firebaseio.com",
-            projectId: "your-app-name",
-            storageBucket: "your-app-name.appspot.com",
-            messagingSenderId: "123456789",
-            appId: "1:123456789:web:abcdef"
-        };
-
-        // Inisialisasi Firebase
-        firebase.initializeApp(firebaseConfig);
-        const db = firebase.database();
-        const dbRef = db.ref('sipena_data');
-
-        // State Aplikasi (Sandi disimpan di LocalStorage Per-Browser)
+        // Konfigurasi Sandi (Disimpan di localStorage agar permanen saat diganti)
         let superAdminPassword = localStorage.getItem('bpom_super_pass') || "SuperAdminBogor2026";
         let adminPasswords = JSON.parse(localStorage.getItem('bpom_admin_passwords')) || {
             "Sukarela": "SukarelaBogor2026",
@@ -441,12 +421,18 @@
             "Korpri": "KorpriBogor2026"
         };
 
+        // State Aplikasi
         let currentRole = localStorage.getItem('bpom_role') || 'pegawai';
         let currentAdminDivision = localStorage.getItem('bpom_division') || '';
+        let transactions = JSON.parse(localStorage.getItem('bpom_transactions')) || [
+            { id: 1, date: '2026-06-01', category: 'Sumbangan Sukarela', desc: 'Sumbangan sukarela bulanan ruang uji', type: 'Masuk', amount: 750000 },
+            { id: 2, date: '2026-06-03', category: 'Iuran Korpri', desc: 'Iuran Korpri anggota periode Juni', type: 'Masuk', amount: 1250000 },
+            { id: 3, date: '2026-06-05', category: 'Sumbangan Sosial', desc: 'Santunan rekan kerja sakit', type: 'Keluar', amount: 500000 },
+            { id: 4, date: '2026-06-10', category: 'Sumbangan Sosial', desc: 'Bantuan sosial kedukaan', type: 'Keluar', amount: 300000 }
+        ];
 
-        // Data Transaksi & Audit Trail Log
-        let transactions = [];
-        let activityLogs = [];
+        // State Tracking / Log Aktivitas
+        let activityLogs = JSON.parse(localStorage.getItem('bpom_activity_logs')) || [];
 
         let incomeChartInstance = null;
         let expenseChartInstance = null;
@@ -454,42 +440,9 @@
         // Inisialisasi Saat Halaman Dimuat
         document.addEventListener('DOMContentLoaded', () => {
             updateRoleUI();
+            renderDashboard();
             initCharts();
-            listenToFirebaseRealtime();
         });
-
-        // ==========================================
-        // SINKRONISASI DATABASE REAL-TIME FIREBASE
-        // ==========================================
-        function listenToFirebaseRealtime() {
-            dbRef.on('value', (snapshot) => {
-                const data = snapshot.val();
-                if (data) {
-                    transactions = data.transactions || [];
-                    activityLogs = data.activityLogs || [];
-                } else {
-                    // Data Default Awal jika Database Kosong
-                    transactions = [
-                        { id: 1, date: '2026-06-01', category: 'Sumbangan Sukarela', desc: 'Sumbangan sukarela bulanan ruang uji', type: 'Masuk', amount: 750000 },
-                        { id: 2, date: '2026-06-03', category: 'Iuran Korpri', desc: 'Iuran Korpri anggota periode Juni', type: 'Masuk', amount: 1250000 },
-                        { id: 3, date: '2026-06-05', category: 'Sumbangan Sosial', desc: 'Santunan rekan kerja sakit', type: 'Keluar', amount: 500000 },
-                        { id: 4, date: '2026-06-10', category: 'Sumbangan Sosial', desc: 'Bantuan sosial kedukaan', type: 'Keluar', amount: 300000 }
-                    ];
-                    activityLogs = [];
-                    saveToFirebase(); // Simpan data default ke cloud
-                }
-                renderDashboard();
-            });
-        }
-
-        function saveToFirebase() {
-            dbRef.set({
-                transactions: transactions,
-                activityLogs: activityLogs
-            }).catch(err => {
-                console.error("Gagal memperbarui database cloud:", err);
-            });
-        }
 
         // Fungsi Ganti Peran ke Pegawai
         function switchRole(role) {
@@ -540,6 +493,7 @@
                 // Catat Log Login
                 addLog(division, "LOGIN", "Berhasil masuk ke panel admin bidang " + division);
 
+                // Bersihkan input password
                 document.getElementById('pass-sukarela').value = '';
                 document.getElementById('pass-sosial').value = '';
                 document.getElementById('pass-korpri').value = '';
@@ -602,7 +556,10 @@
         // FITUR GANTI PASSWORD (ADMIN & SUPER ADMIN)
         // ==========================================
         function updateSuperAdminPassword() {
-            if (currentRole !== 'super_admin') return;
+            if (currentRole !== 'super_admin') {
+                alert('Akses ditolak!');
+                return;
+            }
 
             const newPass = document.getElementById('new-super-pass').value.trim();
             if (!newPass || newPass.length < 5) {
@@ -619,7 +576,10 @@
         }
 
         function updateActiveAdminPassword() {
-            if (currentRole !== 'admin' || !currentAdminDivision) return;
+            if (currentRole !== 'admin' || !currentAdminDivision) {
+                alert('Akses ditolak!');
+                return;
+            }
 
             const newPass = document.getElementById('new-admin-pass').value.trim();
             if (!newPass || newPass.length < 5) {
@@ -636,14 +596,17 @@
         }
 
         // ==========================================
-        // FITUR BACKUP & RESTORE DATA JSON
+        // FITUR BACKUP & RESTORE DATA JSON (SUPER ADMIN)
         // ==========================================
         function backupDataJSON() {
-            if (currentRole !== 'super_admin') return;
+            if (currentRole !== 'super_admin') {
+                alert('Akses ditolak! Hanya Super Admin yang dapat melakukan backup data.');
+                return;
+            }
 
             const backupPayload = {
                 app: "Take & Give BPOM Bogor",
-                version: "3.0-Cloud",
+                version: "2.2",
                 backupDate: new Date().toISOString(),
                 transactions: transactions,
                 activityLogs: activityLogs,
@@ -662,7 +625,10 @@
         }
 
         function restoreDataJSON(event) {
-            if (currentRole !== 'super_admin') return;
+            if (currentRole !== 'super_admin') {
+                alert('Akses ditolak! Hanya Super Admin yang dapat melakukan restore data.');
+                return;
+            }
 
             const file = event.target.files[0];
             if (!file) return;
@@ -675,10 +641,9 @@
                         throw new Error('Format file backup tidak valid.');
                     }
 
-                    if (confirm(`Peringatan: Restore data akan menimpa seluruh data cloud saat ini. Lanjutkan?`)) {
+                    if (confirm(`Peringatan: Restore data akan menimpa seluruh data sistem saat ini. Lanjutkan?`)) {
                         transactions = parsed.transactions;
                         activityLogs = parsed.activityLogs;
-
                         if (parsed.superAdminPassword) {
                             superAdminPassword = parsed.superAdminPassword;
                             localStorage.setItem('bpom_super_pass', superAdminPassword);
@@ -688,8 +653,11 @@
                             localStorage.setItem('bpom_admin_passwords', JSON.stringify(adminPasswords));
                         }
 
-                        saveToFirebase(); // Simpan data restore langsung ke cloud
-                        alert('Data sistem berhasil dipulihkan (Restore) ke Cloud Database!');
+                        localStorage.setItem('bpom_transactions', JSON.stringify(transactions));
+                        localStorage.setItem('bpom_activity_logs', JSON.stringify(activityLogs));
+
+                        renderDashboard();
+                        alert('Data sistem berhasil dipulihkan (Restore) dari file backup!');
                     }
                 } catch (err) {
                     alert('Gagal memulihkan data: File JSON rusak atau format tidak dikenali.');
@@ -703,7 +671,10 @@
         // FITUR KOMPILASI LAPORAN EXCEL (.xlsx)
         // ==========================================
         function exportToExcel() {
-            if (currentRole !== 'super_admin') return;
+            if (currentRole !== 'super_admin') {
+                alert('Akses ditolak! Hanya Super Admin yang dapat mengexport laporan ke Excel.');
+                return;
+            }
 
             const txDataForExcel = transactions.map((t, index) => ({
                 No: index + 1,
@@ -730,14 +701,17 @@
             XLSX.utils.book_append_sheet(wb, wsLog, "Log Tracking Audit");
 
             XLSX.writeFile(wb, `Kompilasi_Keuangan_BPOM_Bogor_${new Date().toISOString().split('T')[0]}.xlsx`);
-            alert('File laporan Excel berhasil dikompilasi.');
+            alert('File laporan Excel berhasil dikompilasi dan diunduh.');
         }
 
         // ==========================================
         // FITUR KOMPILASI LAPORAN PDF (.pdf)
         // ==========================================
         function exportToPDF() {
-            if (currentRole !== 'super_admin') return;
+            if (currentRole !== 'super_admin') {
+                alert('Akses ditolak! Hanya Super Admin yang dapat mengunduh laporan PDF.');
+                return;
+            }
 
             let totalMasuk = 0;
             let totalKeluar = 0;
@@ -803,7 +777,7 @@
             });
         }
 
-        // Pencatatan Log Aktivitas (Otomatis Tersinkron ke Cloud)
+        // Fungsi Pencatatan Log Aktivitas
         function addLog(division, action, details) {
             const timestamp = new Date().toLocaleString('id-ID', { dateStyle: 'medium', timeStyle: 'medium' });
             const newLog = {
@@ -814,14 +788,19 @@
                 details: details
             };
             activityLogs.unshift(newLog);
-            saveToFirebase();
+            localStorage.setItem('bpom_activity_logs', JSON.stringify(activityLogs));
+            renderTrackingTable();
         }
 
         function clearTrackingLogs() {
-            if (currentRole !== 'super_admin') return;
+            if (currentRole !== 'super_admin') {
+                alert('Akses ditolak!');
+                return;
+            }
             if (confirm('Apakah Anda yakin ingin membersihkan SELURUH riwayat log tracking?')) {
                 activityLogs = [];
-                saveToFirebase();
+                localStorage.removeItem('bpom_activity_logs');
+                renderTrackingTable();
                 alert('Seluruh data tracking berhasil dibersihkan.');
             }
         }
@@ -830,12 +809,14 @@
             if (currentRole !== 'super_admin') return;
             if (confirm('Hapus item log tracking ini?')) {
                 activityLogs = activityLogs.filter(log => log.id !== id);
-                saveToFirebase();
+                localStorage.setItem('bpom_activity_logs', JSON.stringify(activityLogs));
+                renderTrackingTable();
             }
         }
 
         function renderTrackingTable() {
             const tbody = document.getElementById('tracking-table-body');
+            const thTrackingAksi = document.getElementById('th-tracking-aksi');
             if (!tbody) return;
             tbody.innerHTML = '';
 
@@ -937,7 +918,10 @@
 
         function handleFormSubmit(e) {
             e.preventDefault();
-            if (currentRole !== 'admin') return;
+            if (currentRole !== 'admin') {
+                alert('Akses ditolak!');
+                return;
+            }
 
             const id = document.getElementById('tx-id').value;
             const type = document.getElementById('tx-type').value;
@@ -968,8 +952,9 @@
                 alert('Transaksi baru berhasil disimpan!');
             }
 
-            saveToFirebase(); // Otomatis simpan ke Cloud Firebase
+            localStorage.setItem('bpom_transactions', JSON.stringify(transactions));
             resetForm();
+            renderDashboard();
         }
 
         function editTransaction(id) {
@@ -1003,10 +988,12 @@
             const tx = transactions.find(t => t.id === id);
             if (confirm('Hapus transaksi ini?')) {
                 transactions = transactions.filter(t => t.id !== id);
+                localStorage.setItem('bpom_transactions', JSON.stringify(transactions));
+                
                 if (tx) {
                     addLog(currentAdminDivision, "HAPUS", `Menghapus transaksi [${tx.category}] senilai ${formatRupiah(tx.amount)} (${tx.desc})`);
                 }
-                saveToFirebase(); // Simpan perubahan ke Cloud
+                renderDashboard();
             }
         }
 
@@ -1083,6 +1070,99 @@
         function formatRupiah(number) {
             return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(number);
         }
+
+        // 1. Inisialisasi Firebase
+const firebaseConfig = {
+    apiKey: "YOUR_API_KEY",
+    authDomain: "YOUR_PROJECT_ID.firebaseapp.com",
+    databaseURL: "https://YOUR_PROJECT_ID-default-rtdb.firebaseio.com",
+    projectId: "YOUR_PROJECT_ID",
+    storageBucket: "YOUR_PROJECT_ID.appspot.com",
+    messagingSenderId: "YOUR_SENDER_ID",
+    appId: "YOUR_APP_ID"
+};
+firebase.initializeApp(firebaseConfig);
+const db = firebase.database();
+
+// 2. State Aplikasi (Tanpa localStorage)
+let currentRole = localStorage.getItem('bpom_role') || 'pegawai'; // Opsi simpan sesi login lokal
+let currentAdminDivision = localStorage.getItem('bpom_division') || '';
+let transactions = [];
+let activityLogs = [];
+
+// 3. Sinkronisasi Data Realtime dari Cloud Database
+document.addEventListener('DOMContentLoaded', () => {
+    updateRoleUI();
+
+    // Listen data Transaksi secara Realtime
+    db.ref('transactions').on('value', (snapshot) => {
+        const data = snapshot.val();
+        transactions = data ? Object.values(data) : [];
+        renderDashboard();
+    });
+
+    // Listen data Audit Trail / Logs secara Realtime
+    db.ref('activityLogs').on('value', (snapshot) => {
+        const data = snapshot.val();
+        activityLogs = data ? Object.values(data).reverse() : [];
+        renderTrackingTable();
+    });
+
+    initCharts();
+});
+
+// 4. Perbarui Fungsi Simpan / Tambah Data Ke Cloud
+function handleFormSubmit(e) {
+    e.preventDefault();
+    if (currentRole !== 'admin') return;
+
+    const id = document.getElementById('tx-id').value || Date.now().toString();
+    const type = document.getElementById('tx-type').value;
+    const category = document.getElementById('tx-category').value;
+    const amount = parseFloat(document.getElementById('tx-amount').value);
+    const desc = document.getElementById('tx-desc').value;
+
+    const txPayload = {
+        id: id,
+        date: new Date().toISOString().split('T')[0],
+        category,
+        desc,
+        type,
+        amount
+    };
+
+    // Simpan/Update langsung ke Firebase Database
+    db.ref('transactions/' + id).set(txPayload, (error) => {
+        if (!error) {
+            addLog(currentAdminDivision, id ? "UPDATE" : "TAMBAH", `${type} [${category}] senilai ${formatRupiah(amount)}`);
+            resetForm();
+        } else {
+            alert('Gagal menyimpan data ke cloud database.');
+        }
+    });
+}
+
+// 5. Perbarui Fungsi Hapus Data Dari Cloud
+function deleteTransaction(id) {
+    if (currentRole !== 'admin') return;
+    if (confirm('Hapus transaksi ini?')) {
+        db.ref('transactions/' + id).remove();
+        addLog(currentAdminDivision, "HAPUS", `Menghapus transaksi ID: ${id}`);
+    }
+}
+
+// 6. Perbarui Pencatatan Log Aktivitas ke Cloud
+function addLog(division, action, details) {
+    const logId = Date.now().toString();
+    const newLog = {
+        id: logId,
+        time: new Date().toLocaleString('id-ID', { dateStyle: 'medium', timeStyle: 'medium' }),
+        division: division,
+        action: action,
+        details: details
+    };
+    db.ref('activityLogs/' + logId).set(newLog);
+}
     </script>
 </body>
 </html>
