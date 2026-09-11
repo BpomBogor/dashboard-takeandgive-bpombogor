@@ -14,9 +14,10 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <!-- jsPDF & html2pdf untuk Export ke PDF -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
-    <!-- Firebase App & Realtime Database SDK (Modular/Compat) -->
-<script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-database-compat.js"></script>
+<!-- Firebase SDK (Compat Version untuk Kemudahan Integrasi Single-File) -->
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-database-compat.js"></script>
+</head>
 </head>
 <body class="bg-slate-50 font-sans antialiased text-slate-800">
 
@@ -413,755 +414,680 @@
 
     <!-- SCRIPT APLIKASI -->
     <script>
-        // Konfigurasi Sandi (Disimpan di localStorage agar permanen saat diganti)
-        let superAdminPassword = localStorage.getItem('bpom_super_pass') || "SuperAdminBogor2026";
-        let adminPasswords = JSON.parse(localStorage.getItem('bpom_admin_passwords')) || {
-            "Sukarela": "SukarelaBogor2026",
-            "Sosial": "SosialBogor2026",
-            "Korpri": "KorpriBogor2026"
-        };
-
-        // State Aplikasi
-        let currentRole = localStorage.getItem('bpom_role') || 'pegawai';
-        let currentAdminDivision = localStorage.getItem('bpom_division') || '';
-        let transactions = JSON.parse(localStorage.getItem('bpom_transactions')) || [
-            { id: 1, date: '2026-06-01', category: 'Sumbangan Sukarela', desc: 'Sumbangan sukarela bulanan ruang uji', type: 'Masuk', amount: 750000 },
-            { id: 2, date: '2026-06-03', category: 'Iuran Korpri', desc: 'Iuran Korpri anggota periode Juni', type: 'Masuk', amount: 1250000 },
-            { id: 3, date: '2026-06-05', category: 'Sumbangan Sosial', desc: 'Santunan rekan kerja sakit', type: 'Keluar', amount: 500000 },
-            { id: 4, date: '2026-06-10', category: 'Sumbangan Sosial', desc: 'Bantuan sosial kedukaan', type: 'Keluar', amount: 300000 }
-        ];
-
-        // State Tracking / Log Aktivitas
-        let activityLogs = JSON.parse(localStorage.getItem('bpom_activity_logs')) || [];
-
-        let incomeChartInstance = null;
-        let expenseChartInstance = null;
-
-        // Inisialisasi Saat Halaman Dimuat
-        document.addEventListener('DOMContentLoaded', () => {
-            updateRoleUI();
-            renderDashboard();
-            initCharts();
-        });
-
-        // Fungsi Ganti Peran ke Pegawai
-        function switchRole(role) {
-            if (role === 'pegawai') {
-                currentRole = 'pegawai';
-                currentAdminDivision = '';
-                localStorage.setItem('bpom_role', 'pegawai');
-                localStorage.removeItem('bpom_division');
-                toggleRoleModal();
-                updateRoleUI();
-                renderDashboard();
-                resetForm();
-            }
-        }
-
-        // Verifikasi Login Super Admin
-        function verifySuperAdminLogin() {
-            const inputPass = document.getElementById('pass-super').value;
-            if (inputPass === superAdminPassword) {
-                currentRole = 'super_admin';
-                currentAdminDivision = 'Super Admin';
-                localStorage.setItem('bpom_role', 'super_admin');
-                localStorage.setItem('bpom_division', 'Super Admin');
-
-                document.getElementById('pass-super').value = '';
-                toggleRoleModal();
-                updateRoleUI();
-                renderDashboard();
-                alert('Berhasil masuk sebagai Super Admin!');
-            } else {
-                alert('Kata sandi Super Admin salah! Silakan coba lagi.');
-            }
-        }
-
-        // Verifikasi Login Admin Bidang
-        function verifyAdminLogin(division) {
-            let inputPass = "";
-            if (division === 'Sukarela') inputPass = document.getElementById('pass-sukarela').value;
-            if (division === 'Sosial') inputPass = document.getElementById('pass-sosial').value;
-            if (division === 'Korpri') inputPass = document.getElementById('pass-korpri').value;
-
-            if (inputPass === adminPasswords[division]) {
-                currentRole = 'admin';
-                currentAdminDivision = division;
-                localStorage.setItem('bpom_role', 'admin');
-                localStorage.setItem('bpom_division', division);
-
-                // Catat Log Login
-                addLog(division, "LOGIN", "Berhasil masuk ke panel admin bidang " + division);
-
-                // Bersihkan input password
-                document.getElementById('pass-sukarela').value = '';
-                document.getElementById('pass-sosial').value = '';
-                document.getElementById('pass-korpri').value = '';
-
-                toggleRoleModal();
-                updateRoleUI();
-                renderDashboard();
-                alert(`Berhasil masuk sebagai Admin ${division}!`);
-            } else {
-                alert(`Kata sandi untuk Admin ${division} salah! Silakan coba lagi.`);
-            }
-        }
-
-        function toggleRoleModal() {
-            const modal = document.getElementById('role-modal');
-            modal.classList.toggle('hidden');
-        }
-
-        function updateRoleUI() {
-            const roleText = document.getElementById('current-role-text');
-            const adminPanel = document.getElementById('admin-panel');
-            const employeeNotice = document.getElementById('employee-notice');
-            const trackingSection = document.getElementById('tracking-section');
-            const superAdminPanel = document.getElementById('super-admin-control-panel');
-            const thAksi = document.getElementById('th-aksi');
-            const thTrackingAksi = document.getElementById('th-tracking-aksi');
-            const btnClearTracking = document.getElementById('btn-clear-tracking');
-            const activeAdminLabel = document.getElementById('active-admin-label');
-
-            if (currentRole === 'admin') {
-                roleText.innerText = `Admin (${currentAdminDivision})`;
-                adminPanel.classList.remove('hidden');
-                employeeNotice.classList.add('hidden');
-                trackingSection.classList.add('hidden');
-                superAdminPanel.classList.add('hidden');
-                thAksi.classList.remove('hidden');
-                if (activeAdminLabel) activeAdminLabel.innerText = currentAdminDivision;
-            } else if (currentRole === 'super_admin') {
-                roleText.innerText = 'Super Admin (Kontrol & Kompilasi)';
-                adminPanel.classList.add('hidden');
-                employeeNotice.classList.remove('hidden');
-                trackingSection.classList.remove('hidden');
-                superAdminPanel.classList.remove('hidden');
-                thAksi.classList.add('hidden');
-                thTrackingAksi.classList.remove('hidden');
-                btnClearTracking.classList.remove('hidden');
-            } else {
-                roleText.innerText = 'Pegawai (Viewer)';
-                adminPanel.classList.add('hidden');
-                employeeNotice.classList.remove('hidden');
-                trackingSection.classList.remove('hidden');
-                superAdminPanel.classList.add('hidden');
-                thAksi.classList.add('hidden');
-                thTrackingAksi.classList.add('hidden');
-                btnClearTracking.classList.add('hidden');
-            }
-        }
-
         // ==========================================
-        // FITUR GANTI PASSWORD (ADMIN & SUPER ADMIN)
-        // ==========================================
-        function updateSuperAdminPassword() {
-            if (currentRole !== 'super_admin') {
-                alert('Akses ditolak!');
-                return;
-            }
-
-            const newPass = document.getElementById('new-super-pass').value.trim();
-            if (!newPass || newPass.length < 5) {
-                alert('Kata sandi baru minimal harus terdiri dari 5 karakter.');
-                return;
-            }
-
-            if (confirm('Apakah Anda yakin ingin mengubah sandi Super Admin?')) {
-                superAdminPassword = newPass;
-                localStorage.setItem('bpom_super_pass', superAdminPassword);
-                document.getElementById('new-super-pass').value = '';
-                alert('Kata sandi Super Admin berhasil diperbarui!');
-            }
-        }
-
-        function updateActiveAdminPassword() {
-            if (currentRole !== 'admin' || !currentAdminDivision) {
-                alert('Akses ditolak!');
-                return;
-            }
-
-            const newPass = document.getElementById('new-admin-pass').value.trim();
-            if (!newPass || newPass.length < 5) {
-                alert('Kata sandi baru minimal harus terdiri dari 5 karakter.');
-                return;
-            }
-
-            if (confirm(`Apakah Anda yakin ingin mengubah sandi untuk Admin ${currentAdminDivision}?`)) {
-                adminPasswords[currentAdminDivision] = newPass;
-                localStorage.setItem('bpom_admin_passwords', JSON.stringify(adminPasswords));
-                document.getElementById('new-admin-pass').value = '';
-                alert(`Kata sandi untuk Admin ${currentAdminDivision} berhasil diperbarui!`);
-            }
-        }
-
-        // ==========================================
-        // FITUR BACKUP & RESTORE DATA JSON (SUPER ADMIN)
-        // ==========================================
-        function backupDataJSON() {
-            if (currentRole !== 'super_admin') {
-                alert('Akses ditolak! Hanya Super Admin yang dapat melakukan backup data.');
-                return;
-            }
-
-            const backupPayload = {
-                app: "Take & Give BPOM Bogor",
-                version: "2.2",
-                backupDate: new Date().toISOString(),
-                transactions: transactions,
-                activityLogs: activityLogs,
-                superAdminPassword: superAdminPassword,
-                adminPasswords: adminPasswords
-            };
-
-            const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(backupPayload, null, 2));
-            const downloadAnchor = document.createElement('a');
-            downloadAnchor.setAttribute("href", dataStr);
-            downloadAnchor.setAttribute("download", `backup_keuangan_bpom_${new Date().toISOString().split('T')[0]}.json`);
-            document.body.appendChild(downloadAnchor);
-            downloadAnchor.click();
-            downloadAnchor.remove();
-            alert('File backup JSON berhasil diunduh.');
-        }
-
-        function restoreDataJSON(event) {
-            if (currentRole !== 'super_admin') {
-                alert('Akses ditolak! Hanya Super Admin yang dapat melakukan restore data.');
-                return;
-            }
-
-            const file = event.target.files[0];
-            if (!file) return;
-
-            const reader = new FileReader();
-            reader.onload = function(e) {
-                try {
-                    const parsed = JSON.parse(e.target.result);
-                    if (!parsed.transactions || !parsed.activityLogs) {
-                        throw new Error('Format file backup tidak valid.');
-                    }
-
-                    if (confirm(`Peringatan: Restore data akan menimpa seluruh data sistem saat ini. Lanjutkan?`)) {
-                        transactions = parsed.transactions;
-                        activityLogs = parsed.activityLogs;
-                        if (parsed.superAdminPassword) {
-                            superAdminPassword = parsed.superAdminPassword;
-                            localStorage.setItem('bpom_super_pass', superAdminPassword);
-                        }
-                        if (parsed.adminPasswords) {
-                            adminPasswords = parsed.adminPasswords;
-                            localStorage.setItem('bpom_admin_passwords', JSON.stringify(adminPasswords));
-                        }
-
-                        localStorage.setItem('bpom_transactions', JSON.stringify(transactions));
-                        localStorage.setItem('bpom_activity_logs', JSON.stringify(activityLogs));
-
-                        renderDashboard();
-                        alert('Data sistem berhasil dipulihkan (Restore) dari file backup!');
-                    }
-                } catch (err) {
-                    alert('Gagal memulihkan data: File JSON rusak atau format tidak dikenali.');
-                }
-                event.target.value = '';
-            };
-            reader.readAsText(file);
-        }
-
-        // ==========================================
-        // FITUR KOMPILASI LAPORAN EXCEL (.xlsx)
-        // ==========================================
-        function exportToExcel() {
-            if (currentRole !== 'super_admin') {
-                alert('Akses ditolak! Hanya Super Admin yang dapat mengexport laporan ke Excel.');
-                return;
-            }
-
-            const txDataForExcel = transactions.map((t, index) => ({
-                No: index + 1,
-                Tanggal: t.date,
-                Kategori: t.category,
-                Uraian: t.desc,
-                Jenis: t.type,
-                Jumlah: t.amount
-            }));
-
-            const logDataForExcel = activityLogs.map((l, index) => ({
-                No: index + 1,
-                Waktu: l.time,
-                Admin: l.division,
-                Aksi: l.action,
-                Keterangan: l.details
-            }));
-
-            const wb = XLSX.utils.book_new();
-            const wsTx = XLSX.utils.json_to_sheet(txDataForExcel);
-            const wsLog = XLSX.utils.json_to_sheet(logDataForExcel);
-
-            XLSX.utils.book_append_sheet(wb, wsTx, "Riwayat Transaksi");
-            XLSX.utils.book_append_sheet(wb, wsLog, "Log Tracking Audit");
-
-            XLSX.writeFile(wb, `Kompilasi_Keuangan_BPOM_Bogor_${new Date().toISOString().split('T')[0]}.xlsx`);
-            alert('File laporan Excel berhasil dikompilasi dan diunduh.');
-        }
-
-        // ==========================================
-        // FITUR KOMPILASI LAPORAN PDF (.pdf)
-        // ==========================================
-        function exportToPDF() {
-            if (currentRole !== 'super_admin') {
-                alert('Akses ditolak! Hanya Super Admin yang dapat mengunduh laporan PDF.');
-                return;
-            }
-
-            let totalMasuk = 0;
-            let totalKeluar = 0;
-            transactions.forEach(t => {
-                if (t.type === 'Masuk') totalMasuk += t.amount;
-                else totalKeluar += t.amount;
-            });
-            let saldo = totalMasuk - totalKeluar;
-
-            document.getElementById('pdf-print-date').innerText = new Date().toLocaleDateString('id-ID', { dateStyle: 'full' });
-            document.getElementById('pdf-stat-masuk').innerText = formatRupiah(totalMasuk);
-            document.getElementById('pdf-stat-keluar').innerText = formatRupiah(totalKeluar);
-            document.getElementById('pdf-stat-saldo').innerText = formatRupiah(saldo);
-
-            const pdfTxTbody = document.getElementById('pdf-transaction-tbody');
-            pdfTxTbody.innerHTML = '';
-            transactions.forEach(t => {
-                pdfTxTbody.innerHTML += `
-                    <tr class="border-b">
-                        <td class="p-1.5">${t.date}</td>
-                        <td class="p-1.5">${t.category}</td>
-                        <td class="p-1.5">${t.desc}</td>
-                        <td class="p-1.5 font-semibold">${t.type}</td>
-                        <td class="p-1.5 text-right font-bold">${formatRupiah(t.amount)}</td>
-                    </tr>
-                `;
-            });
-
-            const pdfLogTbody = document.getElementById('pdf-tracking-tbody');
-            pdfLogTbody.innerHTML = '';
-            if (activityLogs.length === 0) {
-                pdfLogTbody.innerHTML = `<tr><td colspan="4" class="p-2 text-center text-slate-400">Belum ada log tracking.</td></tr>`;
-            } else {
-                activityLogs.slice(0, 30).forEach(l => {
-                    pdfLogTbody.innerHTML += `
-                        <tr class="border-b">
-                            <td class="p-1 font-mono">${l.time}</td>
-                            <td class="p-1 font-semibold">${l.division}</td>
-                            <td class="p-1">${l.action}</td>
-                            <td class="p-1">${l.details}</td>
-                        </tr>
-                    `;
-                });
-            }
-
-            const printableArea = document.getElementById('pdf-printable-area');
-            printableArea.classList.remove('hidden');
-
-            const opt = {
-                margin:       0.5,
-                filename:     `Kompilasi_Laporan_Keuangan_BPOM_${new Date().toISOString().split('T')[0]}.pdf`,
-                image:        { type: 'jpeg', quality: 0.98 },
-                html2canvas:  { scale: 2, useCORS: true },
-                jsPDF:        { unit: 'in', format: 'a4', orientation: 'portrait' }
-            };
-
-            html2pdf().from(printableArea).set(opt).save().then(() => {
-                printableArea.classList.add('hidden');
-                alert('Laporan PDF berhasil dikompilasi dan diunduh.');
-            }).catch(err => {
-                printableArea.classList.add('hidden');
-                alert('Terjadi kesalahan saat menghasilkan PDF.');
-            });
-        }
-
-        // Fungsi Pencatatan Log Aktivitas
-        function addLog(division, action, details) {
-            const timestamp = new Date().toLocaleString('id-ID', { dateStyle: 'medium', timeStyle: 'medium' });
-            const newLog = {
-                id: Date.now(),
-                time: timestamp,
-                division: division,
-                action: action,
-                details: details
-            };
-            activityLogs.unshift(newLog);
-            localStorage.setItem('bpom_activity_logs', JSON.stringify(activityLogs));
-            renderTrackingTable();
-        }
-
-        function clearTrackingLogs() {
-            if (currentRole !== 'super_admin') {
-                alert('Akses ditolak!');
-                return;
-            }
-            if (confirm('Apakah Anda yakin ingin membersihkan SELURUH riwayat log tracking?')) {
-                activityLogs = [];
-                localStorage.removeItem('bpom_activity_logs');
-                renderTrackingTable();
-                alert('Seluruh data tracking berhasil dibersihkan.');
-            }
-        }
-
-        function deleteTrackingLog(id) {
-            if (currentRole !== 'super_admin') return;
-            if (confirm('Hapus item log tracking ini?')) {
-                activityLogs = activityLogs.filter(log => log.id !== id);
-                localStorage.setItem('bpom_activity_logs', JSON.stringify(activityLogs));
-                renderTrackingTable();
-            }
-        }
-
-        function renderTrackingTable() {
-            const tbody = document.getElementById('tracking-table-body');
-            const thTrackingAksi = document.getElementById('th-tracking-aksi');
-            if (!tbody) return;
-            tbody.innerHTML = '';
-
-            if (activityLogs.length === 0) {
-                const colSpan = (currentRole === 'super_admin') ? 5 : 4;
-                tbody.innerHTML = `<tr><td colspan="${colSpan}" class="p-4 text-center text-slate-400">Belum ada histori perubahan data tercatat.</td></tr>`;
-                return;
-            }
-
-            activityLogs.forEach(log => {
-                let badgeColor = "bg-slate-100 text-slate-700";
-                if (log.action === 'TAMBAH') badgeColor = "bg-emerald-100 text-emerald-700";
-                else if (log.action === 'UPDATE') badgeColor = "bg-blue-100 text-blue-700";
-                else if (log.action === 'HAPUS') badgeColor = "bg-rose-100 text-rose-700";
-                else if (log.action === 'LOGIN') badgeColor = "bg-amber-100 text-amber-700";
-
-                const tr = document.createElement('tr');
-                tr.className = 'hover:bg-slate-50 transition';
-                tr.innerHTML = `
-                    <td class="p-3 text-slate-500 font-mono">${log.time}</td>
-                    <td class="p-3 font-semibold text-slate-700">Admin ${log.division}</td>
-                    <td class="p-3"><span class="px-2 py-0.5 rounded font-bold text-[10px] ${badgeColor}">${log.action}</span></td>
-                    <td class="p-3 text-slate-600">${log.details}</td>
-                `;
-
-                if (currentRole === 'super_admin') {
-                    tr.innerHTML += `
-                        <td class="p-3 text-center">
-                            <button onclick="deleteTrackingLog(${log.id})" class="text-rose-500 hover:text-rose-700 p-1.5" title="Hapus Log Ini"><i class="fa-solid fa-trash"></i></button>
-                        </td>
-                    `;
-                }
-                tbody.appendChild(tr);
-            });
-        }
-
-        function renderDashboard() {
-            renderStats();
-            renderTable();
-            renderTrackingTable();
-            updateCharts();
-        }
-
-        function renderStats() {
-            let totalMasuk = 0;
-            let totalKeluar = 0;
-
-            transactions.forEach(t => {
-                if (t.type === 'Masuk') totalMasuk += t.amount;
-                else totalKeluar += t.amount;
-            });
-
-            let saldo = totalMasuk - totalKeluar;
-
-            document.getElementById('stat-saldo').innerText = formatRupiah(saldo);
-            document.getElementById('stat-masuk').innerText = formatRupiah(totalMasuk);
-            document.getElementById('stat-keluar').innerText = formatRupiah(totalKeluar);
-            document.getElementById('stat-trx').innerText = transactions.length;
-        }
-
-        function renderTable() {
-            const tbody = document.getElementById('transaction-table-body');
-            const keyword = document.getElementById('search-input').value.toLowerCase();
-            tbody.innerHTML = '';
-
-            const filtered = transactions.filter(t => t.desc.toLowerCase().includes(keyword) || t.category.toLowerCase().includes(keyword));
-
-            if (filtered.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="6" class="p-4 text-center text-xs text-slate-400">Tidak ada data transaksi ditemukan.</td></tr>`;
-                return;
-            }
-
-            filtered.sort((a, b) => new Date(b.date) - new Date(a.date)).forEach(t => {
-                const tr = document.createElement('tr');
-                tr.className = 'hover:bg-slate-50/80 transition';
-                
-                let badgeClass = t.type === 'Masuk' ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700';
-                let amountSign = t.type === 'Masuk' ? '+' : '-';
-
-                tr.innerHTML = `
-                    <td class="p-3 text-xs text-slate-600">${t.date}</td>
-                    <td class="p-3 text-xs font-medium text-slate-700">${t.category}</td>
-                    <td class="p-3 text-xs text-slate-600">${t.desc}</td>
-                    <td class="p-3 text-xs"><span class="px-2 py-0.5 rounded-full font-semibold ${badgeClass}">${t.type}</span></td>
-                    <td class="p-3 text-xs font-bold text-right ${t.type === 'Masuk' ? 'text-emerald-600' : 'text-rose-600'}">${amountSign} ${formatRupiah(t.amount)}</td>
-                `;
-
-                if (currentRole === 'admin') {
-                    tr.innerHTML += `
-                        <td class="p-3 text-xs text-center space-x-1">
-                            <button onclick="editTransaction(${t.id})" class="text-blue-500 hover:text-blue-700 px-1.5 py-1" title="Edit"><i class="fa-solid fa-pen"></i></button>
-                            <button onclick="deleteTransaction(${t.id})" class="text-rose-500 hover:text-rose-700 px-1.5 py-1" title="Hapus"><i class="fa-solid fa-trash"></i></button>
-                        </td>
-                    `;
-                }
-                tbody.appendChild(tr);
-            });
-        }
-
-        function handleFormSubmit(e) {
-            e.preventDefault();
-            if (currentRole !== 'admin') {
-                alert('Akses ditolak!');
-                return;
-            }
-
-            const id = document.getElementById('tx-id').value;
-            const type = document.getElementById('tx-type').value;
-            const category = document.getElementById('tx-category').value;
-            const amount = parseFloat(document.getElementById('tx-amount').value);
-            const desc = document.getElementById('tx-desc').value;
-
-            if (id) {
-                transactions = transactions.map(t => {
-                    if (t.id == id) {
-                        return { ...t, type, category, amount, desc };
-                    }
-                    return t;
-                });
-                addLog(currentAdminDivision, "UPDATE", `Memperbarui transaksi [${category}] senilai ${formatRupiah(amount)} (${desc})`);
-                alert('Transaksi berhasil diperbarui!');
-            } else {
-                const newTx = {
-                    id: Date.now(),
-                    date: new Date().toISOString().split('T')[0],
-                    category,
-                    desc,
-                    type,
-                    amount
-                };
-                transactions.push(newTx);
-                addLog(currentAdminDivision, "TAMBAH", `Menambah transaksi ${type} [${category}] senilai ${formatRupiah(amount)} (${desc})`);
-                alert('Transaksi baru berhasil disimpan!');
-            }
-
-            localStorage.setItem('bpom_transactions', JSON.stringify(transactions));
-            resetForm();
-            renderDashboard();
-        }
-
-        function editTransaction(id) {
-            if (currentRole !== 'admin') return;
-            const tx = transactions.find(t => t.id === id);
-            if (!tx) return;
-
-            document.getElementById('tx-id').value = tx.id;
-            document.getElementById('tx-type').value = tx.type;
-            document.getElementById('tx-category').value = tx.category;
-            document.getElementById('tx-amount').value = tx.amount;
-            document.getElementById('tx-desc').value = tx.desc;
-
-            document.getElementById('form-title').innerHTML = `<i class="fa-solid fa-pen-to-square mr-2 text-amber-500"></i>Edit Transaksi (ID: ${tx.id})`;
-            document.getElementById('btn-submit').innerText = 'Perbarui Transaksi';
-            document.getElementById('btn-submit').className = 'w-full bg-amber-600 hover:bg-amber-700 text-white text-sm font-semibold py-2 rounded-lg transition shadow-sm';
-            document.getElementById('btn-cancel-edit').classList.remove('hidden');
-        }
-
-        function resetForm() {
-            document.getElementById('transaction-form').reset();
-            document.getElementById('tx-id').value = '';
-            document.getElementById('form-title').innerHTML = `<i class="fa-solid fa-pen-to-square mr-2 text-emerald-600"></i>Entri Transaksi Baru`;
-            document.getElementById('btn-submit').innerText = 'Simpan Transaksi';
-            document.getElementById('btn-submit').className = 'w-full bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-semibold py-2 rounded-lg transition shadow-sm';
-            document.getElementById('btn-cancel-edit').classList.add('hidden');
-        }
-
-        function deleteTransaction(id) {
-            if (currentRole !== 'admin') return;
-            const tx = transactions.find(t => t.id === id);
-            if (confirm('Hapus transaksi ini?')) {
-                transactions = transactions.filter(t => t.id !== id);
-                localStorage.setItem('bpom_transactions', JSON.stringify(transactions));
-                
-                if (tx) {
-                    addLog(currentAdminDivision, "HAPUS", `Menghapus transaksi [${tx.category}] senilai ${formatRupiah(tx.amount)} (${tx.desc})`);
-                }
-                renderDashboard();
-            }
-        }
-
-        function initCharts() {
-            const categories = ['Sumbangan Sukarela', 'Sumbangan Sosial', 'Iuran Korpri', 'Lainnya'];
-
-            const ctxIncome = document.getElementById('incomeChart').getContext('2d');
-            incomeChartInstance = new Chart(ctxIncome, {
-                type: 'bar',
-                data: {
-                    labels: categories,
-                    datasets: [{
-                        label: 'Pemasukan (Rp)',
-                        data: [0, 0, 0, 0],
-                        backgroundColor: '#10b981',
-                        borderRadius: 6
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: { legend: { display: false } },
-                    scales: { y: { beginAtZero: true } }
-                }
-            });
-
-            const ctxExpense = document.getElementById('expenseChart').getContext('2d');
-            expenseChartInstance = new Chart(ctxExpense, {
-                type: 'bar',
-                data: {
-                    labels: categories,
-                    datasets: [{
-                        label: 'Pengeluaran (Rp)',
-                        data: [0, 0, 0, 0],
-                        backgroundColor: '#f43f5e',
-                        borderRadius: 6
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: { legend: { display: false } },
-                    scales: { y: { beginAtZero: true } }
-                }
-            });
-
-            updateCharts();
-        }
-
-        function updateCharts() {
-            if (!incomeChartInstance || !expenseChartInstance) return;
-
-            const categories = ['Sumbangan Sukarela', 'Sumbangan Sosial', 'Iuran Korpri', 'Lainnya'];
-
-            let incomeTotals = categories.map(cat => {
-                return transactions
-                    .filter(t => t.category === cat && t.type === 'Masuk')
-                    .reduce((sum, t) => sum + t.amount, 0);
-            });
-
-            let expenseTotals = categories.map(cat => {
-                return transactions
-                    .filter(t => t.category === cat && t.type === 'Keluar')
-                    .reduce((sum, t) => sum + t.amount, 0);
-            });
-
-            incomeChartInstance.data.datasets[0].data = incomeTotals;
-            incomeChartInstance.update();
-
-            expenseChartInstance.data.datasets[0].data = expenseTotals;
-            expenseChartInstance.update();
-        }
-
-        function formatRupiah(number) {
-            return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(number);
-        }
-
-        // 1. Inisialisasi Firebase
+// 1. KONFIGURASI & INISIALISASI FIREBASE
+// ==========================================
+// TODO: Ganti isi objek firebaseConfig di bawah ini dengan milik kamu dari Firebase Console
 const firebaseConfig = {
-    apiKey: "YOUR_API_KEY",
-    authDomain: "YOUR_PROJECT_ID.firebaseapp.com",
-    databaseURL: "https://YOUR_PROJECT_ID-default-rtdb.firebaseio.com",
-    projectId: "YOUR_PROJECT_ID",
-    storageBucket: "YOUR_PROJECT_ID.appspot.com",
-    messagingSenderId: "YOUR_SENDER_ID",
-    appId: "YOUR_APP_ID"
+  apiKey: "AIzaSyD_BY1B_woDIhFONxkrlFqgQyMXKQuB2aY",
+  authDomain: "sipena-bpom-bogor.firebaseapp.com",
+  databaseURL: "https://sipena-bpom-bogor-default-rtdb.asia-southeast1.firebasedatabase.app",
+  projectId: "sipena-bpom-bogor",
+  storageBucket: "sipena-bpom-bogor.firebasestorage.app",
+  messagingSenderId: "617803359851",
+  appId: "1:617803359851:web:f294b457f1c007644c332e",
+  measurementId: "G-FLDQ0YVCVR"
 };
+
+// Inisialisasi Firebase & Database Reference
 firebase.initializeApp(firebaseConfig);
 const db = firebase.database();
 
-// 2. State Aplikasi (Tanpa localStorage)
-let currentRole = localStorage.getItem('bpom_role') || 'pegawai'; // Opsi simpan sesi login lokal
+// Ref ke node utama di Cloud Database
+const txRef = db.ref('transactions');
+const logRef = db.ref('activityLogs');
+const configRef = db.ref('config');
+
+// ==========================================
+// 2. STATE APLIKASI
+// ==========================================
+let superAdminPassword = "SuperAdminBogor2026";
+let adminPasswords = {
+    "Sukarela": "SukarelaBogor2026",
+    "Sosial": "SosialBogor2026",
+    "Korpri": "KorpriBogor2026"
+};
+
+let currentRole = localStorage.getItem('bpom_role') || 'pegawai';
 let currentAdminDivision = localStorage.getItem('bpom_division') || '';
 let transactions = [];
 let activityLogs = [];
 
-// 3. Sinkronisasi Data Realtime dari Cloud Database
+let incomeChartInstance = null;
+let expenseChartInstance = null;
+
+// ==========================================
+// 3. LISTEN DATA CLOUD (REAL-TIME SYNC)
+// ==========================================
 document.addEventListener('DOMContentLoaded', () => {
     updateRoleUI();
+    initCharts();
 
-    // Listen data Transaksi secara Realtime
-    db.ref('transactions').on('value', (snapshot) => {
+    // Listen Perubahan Password Sistem secara Realtime
+    configRef.on('value', (snapshot) => {
         const data = snapshot.val();
-        transactions = data ? Object.values(data) : [];
+        if (data) {
+            if (data.superAdminPassword) superAdminPassword = data.superAdminPassword;
+            if (data.adminPasswords) adminPasswords = data.adminPasswords;
+        }
+    });
+
+    // Listen Data Transaksi Keuangan dari Cloud
+    txRef.on('value', (snapshot) => {
+        const data = snapshot.val();
+        transactions = [];
+        if (data) {
+            // Ubah Objek Firebase ke Array
+            Object.keys(data).forEach(key => {
+                transactions.push({ id: key, ...data[key] });
+            });
+        }
         renderDashboard();
     });
 
-    // Listen data Audit Trail / Logs secara Realtime
-    db.ref('activityLogs').on('value', (snapshot) => {
+    // Listen Data Audit Log Tracking dari Cloud
+    logRef.on('value', (snapshot) => {
         const data = snapshot.val();
-        activityLogs = data ? Object.values(data).reverse() : [];
+        activityLogs = [];
+        if (data) {
+            Object.keys(data).forEach(key => {
+                activityLogs.push({ id: key, ...data[key] });
+            });
+            // Urutkan log dari yang terbaru
+            activityLogs.sort((a, b) => b.timestamp - a.timestamp);
+        }
         renderTrackingTable();
     });
-
-    initCharts();
 });
 
-// 4. Perbarui Fungsi Simpan / Tambah Data Ke Cloud
+// ==========================================
+// 4. OTORISASI & AKSEBILITAS USER
+// ==========================================
+function switchRole(role) {
+    if (role === 'pegawai') {
+        currentRole = 'pegawai';
+        currentAdminDivision = '';
+        localStorage.setItem('bpom_role', 'pegawai');
+        localStorage.removeItem('bpom_division');
+        toggleRoleModal();
+        updateRoleUI();
+        renderDashboard();
+        resetForm();
+    }
+}
+
+function verifySuperAdminLogin() {
+    const inputPass = document.getElementById('pass-super').value;
+    if (inputPass === superAdminPassword) {
+        currentRole = 'super_admin';
+        currentAdminDivision = 'Super Admin';
+        localStorage.setItem('bpom_role', 'super_admin');
+        localStorage.setItem('bpom_division', 'Super Admin');
+
+        document.getElementById('pass-super').value = '';
+        toggleRoleModal();
+        updateRoleUI();
+        renderDashboard();
+        alert('Berhasil masuk sebagai Super Admin!');
+    } else {
+        alert('Kata sandi Super Admin salah!');
+    }
+}
+
+function verifyAdminLogin(division) {
+    let inputPass = "";
+    if (division === 'Sukarela') inputPass = document.getElementById('pass-sukarela').value;
+    if (division === 'Sosial') inputPass = document.getElementById('pass-sosial').value;
+    if (division === 'Korpri') inputPass = document.getElementById('pass-korpri').value;
+
+    if (inputPass === adminPasswords[division]) {
+        currentRole = 'admin';
+        currentAdminDivision = division;
+        localStorage.setItem('bpom_role', 'admin');
+        localStorage.setItem('bpom_division', division);
+
+        addLog(division, "LOGIN", "Berhasil masuk ke panel admin bidang " + division);
+
+        document.getElementById('pass-sukarela').value = '';
+        document.getElementById('pass-sosial').value = '';
+        document.getElementById('pass-korpri').value = '';
+
+        toggleRoleModal();
+        updateRoleUI();
+        renderDashboard();
+        alert(`Berhasil masuk sebagai Admin ${division}!`);
+    } else {
+        alert(`Kata sandi Admin ${division} salah!`);
+    }
+}
+
+function toggleRoleModal() {
+    const modal = document.getElementById('role-modal');
+    modal.classList.toggle('hidden');
+}
+
+function updateRoleUI() {
+    const roleText = document.getElementById('current-role-text');
+    const adminPanel = document.getElementById('admin-panel');
+    const employeeNotice = document.getElementById('employee-notice');
+    const trackingSection = document.getElementById('tracking-section');
+    const superAdminPanel = document.getElementById('super-admin-control-panel');
+    const thAksi = document.getElementById('th-aksi');
+    const thTrackingAksi = document.getElementById('th-tracking-aksi');
+    const btnClearTracking = document.getElementById('btn-clear-tracking');
+    const activeAdminLabel = document.getElementById('active-admin-label');
+
+    if (currentRole === 'admin') {
+        roleText.innerText = `Admin (${currentAdminDivision})`;
+        adminPanel.classList.remove('hidden');
+        employeeNotice.classList.add('hidden');
+        trackingSection.classList.add('hidden');
+        superAdminPanel.classList.add('hidden');
+        thAksi.classList.remove('hidden');
+        if (activeAdminLabel) activeAdminLabel.innerText = currentAdminDivision;
+    } else if (currentRole === 'super_admin') {
+        roleText.innerText = 'Super Admin (Kontrol & Kompilasi)';
+        adminPanel.classList.add('hidden');
+        employeeNotice.classList.remove('hidden');
+        trackingSection.classList.remove('hidden');
+        superAdminPanel.classList.remove('hidden');
+        thAksi.classList.add('hidden');
+        thTrackingAksi.classList.remove('hidden');
+        btnClearTracking.classList.remove('hidden');
+    } else {
+        roleText.innerText = 'Pegawai (Viewer)';
+        adminPanel.classList.add('hidden');
+        employeeNotice.classList.remove('hidden');
+        trackingSection.classList.remove('hidden');
+        superAdminPanel.classList.add('hidden');
+        thAksi.classList.add('hidden');
+        thTrackingAksi.classList.add('hidden');
+        btnClearTracking.classList.add('hidden');
+    }
+}
+
+// ==========================================
+// 5. MANAJEMEN SANDI DI CLOUD DATABASE
+// ==========================================
+function updateSuperAdminPassword() {
+    if (currentRole !== 'super_admin') return;
+
+    const newPass = document.getElementById('new-super-pass').value.trim();
+    if (!newPass || newPass.length < 5) {
+        alert('Kata sandi baru minimal 5 karakter.');
+        return;
+    }
+
+    if (confirm('Ubah kata sandi Super Admin secara global?')) {
+        configRef.child('superAdminPassword').set(newPass).then(() => {
+            document.getElementById('new-super-pass').value = '';
+            alert('Sandi Super Admin diperbarui!');
+        });
+    }
+}
+
+function updateActiveAdminPassword() {
+    if (currentRole !== 'admin' || !currentAdminDivision) return;
+
+    const newPass = document.getElementById('new-admin-pass').value.trim();
+    if (!newPass || newPass.length < 5) {
+        alert('Kata sandi baru minimal 5 karakter.');
+        return;
+    }
+
+    if (confirm(`Ubah sandi Admin ${currentAdminDivision} secara global?`)) {
+        configRef.child(`adminPasswords/${currentAdminDivision}`).set(newPass).then(() => {
+            document.getElementById('new-admin-pass').value = '';
+            alert(`Sandi Admin ${currentAdminDivision} diperbarui!`);
+        });
+    }
+}
+
+// ==========================================
+// 6. ENTRI & OPERASI DATA TRANSAKSI (CLOUD)
+// ==========================================
 function handleFormSubmit(e) {
     e.preventDefault();
-    if (currentRole !== 'admin') return;
+    if (currentRole !== 'admin') {
+        alert('Akses ditolak!');
+        return;
+    }
 
-    const id = document.getElementById('tx-id').value || Date.now().toString();
+    const txIdInput = document.getElementById('tx-id').value;
     const type = document.getElementById('tx-type').value;
     const category = document.getElementById('tx-category').value;
     const amount = parseFloat(document.getElementById('tx-amount').value);
     const desc = document.getElementById('tx-desc').value;
 
-    const txPayload = {
-        id: id,
-        date: new Date().toISOString().split('T')[0],
-        category,
-        desc,
-        type,
-        amount
-    };
+    if (txIdInput) {
+        // Edit Transaksi yang Ada
+        const updatedData = {
+            date: new Date().toISOString().split('T')[0],
+            category,
+            desc,
+            type,
+            amount
+        };
 
-    // Simpan/Update langsung ke Firebase Database
-    db.ref('transactions/' + id).set(txPayload, (error) => {
-        if (!error) {
-            addLog(currentAdminDivision, id ? "UPDATE" : "TAMBAH", `${type} [${category}] senilai ${formatRupiah(amount)}`);
+        txRef.child(txIdInput).update(updatedData).then(() => {
+            addLog(currentAdminDivision, "UPDATE", `Update transaksi [${category}] ${formatRupiah(amount)} (${desc})`);
             resetForm();
-        } else {
-            alert('Gagal menyimpan data ke cloud database.');
-        }
-    });
-}
+            alert('Transaksi berhasil di-update!');
+        });
+    } else {
+        // Tambah Transaksi Baru
+        const newKey = txRef.push().key;
+        const newData = {
+            date: new Date().toISOString().split('T')[0],
+            category,
+            desc,
+            type,
+            amount
+        };
 
-// 5. Perbarui Fungsi Hapus Data Dari Cloud
-function deleteTransaction(id) {
-    if (currentRole !== 'admin') return;
-    if (confirm('Hapus transaksi ini?')) {
-        db.ref('transactions/' + id).remove();
-        addLog(currentAdminDivision, "HAPUS", `Menghapus transaksi ID: ${id}`);
+        txRef.child(newKey).set(newData).then(() => {
+            addLog(currentAdminDivision, "TAMBAH", `Menambah ${type} [${category}] ${formatRupiah(amount)} (${desc})`);
+            resetForm();
+            alert('Transaksi baru disimpan!');
+        });
     }
 }
 
-// 6. Perbarui Pencatatan Log Aktivitas ke Cloud
+function editTransaction(id) {
+    if (currentRole !== 'admin') return;
+    const tx = transactions.find(t => t.id === id);
+    if (!tx) return;
+
+    document.getElementById('tx-id').value = tx.id;
+    document.getElementById('tx-type').value = tx.type;
+    document.getElementById('tx-category').value = tx.category;
+    document.getElementById('tx-amount').value = tx.amount;
+    document.getElementById('tx-desc').value = tx.desc;
+
+    document.getElementById('form-title').innerHTML = `<i class="fa-solid fa-pen-to-square mr-2 text-amber-500"></i>Edit Transaksi`;
+    document.getElementById('btn-submit').innerText = 'Perbarui Transaksi';
+    document.getElementById('btn-submit').className = 'w-full bg-amber-600 hover:bg-amber-700 text-white text-sm font-semibold py-2 rounded-lg transition shadow-sm';
+    document.getElementById('btn-cancel-edit').classList.remove('hidden');
+}
+
+function resetForm() {
+    document.getElementById('transaction-form').reset();
+    document.getElementById('tx-id').value = '';
+    document.getElementById('form-title').innerHTML = `<i class="fa-solid fa-pen-to-square mr-2 text-emerald-600"></i>Entri Transaksi Baru`;
+    document.getElementById('btn-submit').innerText = 'Simpan Transaksi';
+    document.getElementById('btn-submit').className = 'w-full bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-semibold py-2 rounded-lg transition shadow-sm';
+    document.getElementById('btn-cancel-edit').classList.add('hidden');
+}
+
+function deleteTransaction(id) {
+    if (currentRole !== 'admin') return;
+    const tx = transactions.find(t => t.id === id);
+    if (confirm('Hapus transaksi ini dari Cloud Database?')) {
+        txRef.child(id).remove().then(() => {
+            if (tx) {
+                addLog(currentAdminDivision, "HAPUS", `Menghapus transaksi [${tx.category}] ${formatRupiah(tx.amount)} (${tx.desc})`);
+            }
+        });
+    }
+}
+
+// ==========================================
+// 7. AUDIT TRAIL / LOGS AKTIVITAS (CLOUD)
+// ==========================================
 function addLog(division, action, details) {
-    const logId = Date.now().toString();
-    const newLog = {
-        id: logId,
-        time: new Date().toLocaleString('id-ID', { dateStyle: 'medium', timeStyle: 'medium' }),
+    const logKey = logRef.push().key;
+    const timestamp = new Date().toLocaleString('id-ID', { dateStyle: 'medium', timeStyle: 'medium' });
+    
+    logRef.child(logKey).set({
+        time: timestamp,
+        timestamp: Date.now(),
         division: division,
         action: action,
         details: details
+    });
+}
+
+function clearTrackingLogs() {
+    if (currentRole !== 'super_admin') return;
+    if (confirm('Hapus SEMURAH riwayat log tracking dari server cloud?')) {
+        logRef.remove();
+    }
+}
+
+function deleteTrackingLog(id) {
+    if (currentRole !== 'super_admin') return;
+    if (confirm('Hapus item log ini?')) {
+        logRef.child(id).remove();
+    }
+}
+
+// ==========================================
+// 8. BACKUP, RESTORE & EXPORT (EXCEL / PDF)
+// ==========================================
+function backupDataJSON() {
+    if (currentRole !== 'super_admin') return;
+
+    const backupPayload = {
+        app: "Take & Give BPOM Bogor",
+        version: "3.0 (Cloud Sync)",
+        backupDate: new Date().toISOString(),
+        transactions: transactions,
+        activityLogs: activityLogs,
+        superAdminPassword: superAdminPassword,
+        adminPasswords: adminPasswords
     };
-    db.ref('activityLogs/' + logId).set(newLog);
+
+    const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(backupPayload, null, 2));
+    const downloadAnchor = document.createElement('a');
+    downloadAnchor.setAttribute("href", dataStr);
+    downloadAnchor.setAttribute("download", `backup_cloud_bpom_${new Date().toISOString().split('T')[0]}.json`);
+    document.body.appendChild(downloadAnchor);
+    downloadAnchor.click();
+    downloadAnchor.remove();
+}
+
+function restoreDataJSON(event) {
+    if (currentRole !== 'super_admin') return;
+
+    const file = event.target.files[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = function(e) {
+        try {
+            const parsed = JSON.parse(e.target.result);
+            if (!parsed.transactions) throw new Error('Format file tidak valid.');
+
+            if (confirm(`Restore data akan menimpa seluruh database cloud saat ini. Lanjutkan?`)) {
+                // Upload ulang ke Cloud
+                const newTxObj = {};
+                parsed.transactions.forEach(t => {
+                    const id = t.id || txRef.push().key;
+                    newTxObj[id] = { date: t.date, category: t.category, desc: t.desc, type: t.type, amount: t.amount };
+                });
+                
+                txRef.set(newTxObj);
+                if (parsed.superAdminPassword) configRef.child('superAdminPassword').set(parsed.superAdminPassword);
+                if (parsed.adminPasswords) configRef.child('adminPasswords').set(parsed.adminPasswords);
+
+                alert('Data Cloud Database berhasil dipulihkan!');
+            }
+        } catch (err) {
+            alert('Gagal restore: Format file JSON tidak valid.');
+        }
+        event.target.value = '';
+    };
+    reader.readAsText(file);
+}
+
+function exportToExcel() {
+    if (currentRole !== 'super_admin') return;
+
+    const txDataForExcel = transactions.map((t, index) => ({
+        No: index + 1,
+        Tanggal: t.date,
+        Kategori: t.category,
+        Uraian: t.desc,
+        Jenis: t.type,
+        Jumlah: t.amount
+    }));
+
+    const logDataForExcel = activityLogs.map((l, index) => ({
+        No: index + 1,
+        Waktu: l.time,
+        Admin: l.division,
+        Aksi: l.action,
+        Keterangan: l.details
+    }));
+
+    const wb = XLSX.utils.book_new();
+    const wsTx = XLSX.utils.json_to_sheet(txDataForExcel);
+    const wsLog = XLSX.utils.json_to_sheet(logDataForExcel);
+
+    XLSX.utils.book_append_sheet(wb, wsTx, "Riwayat Transaksi");
+    XLSX.utils.book_append_sheet(wb, wsLog, "Log Tracking Audit");
+
+    XLSX.writeFile(wb, `Kompilasi_Keuangan_BPOM_Bogor_${new Date().toISOString().split('T')[0]}.xlsx`);
+}
+
+function exportToPDF() {
+    if (currentRole !== 'super_admin') return;
+
+    let totalMasuk = 0;
+    let totalKeluar = 0;
+    transactions.forEach(t => {
+        if (t.type === 'Masuk') totalMasuk += t.amount;
+        else totalKeluar += t.amount;
+    });
+    let saldo = totalMasuk - totalKeluar;
+
+    document.getElementById('pdf-print-date').innerText = new Date().toLocaleDateString('id-ID', { dateStyle: 'full' });
+    document.getElementById('pdf-stat-masuk').innerText = formatRupiah(totalMasuk);
+    document.getElementById('pdf-stat-keluar').innerText = formatRupiah(totalKeluar);
+    document.getElementById('pdf-stat-saldo').innerText = formatRupiah(saldo);
+
+    const pdfTxTbody = document.getElementById('pdf-transaction-tbody');
+    pdfTxTbody.innerHTML = '';
+    transactions.forEach(t => {
+        pdfTxTbody.innerHTML += `
+            <tr class="border-b">
+                <td class="p-1.5">${t.date}</td>
+                <td class="p-1.5">${t.category}</td>
+                <td class="p-1.5">${t.desc}</td>
+                <td class="p-1.5 font-semibold">${t.type}</td>
+                <td class="p-1.5 text-right font-bold">${formatRupiah(t.amount)}</td>
+            </tr>
+        `;
+    });
+
+    const pdfLogTbody = document.getElementById('pdf-tracking-tbody');
+    pdfLogTbody.innerHTML = '';
+    activityLogs.slice(0, 30).forEach(l => {
+        pdfLogTbody.innerHTML += `
+            <tr class="border-b">
+                <td class="p-1 font-mono">${l.time}</td>
+                <td class="p-1 font-semibold">${l.division}</td>
+                <td class="p-1">${l.action}</td>
+                <td class="p-1">${l.details}</td>
+            </tr>
+        `;
+    });
+
+    const printableArea = document.getElementById('pdf-printable-area');
+    printableArea.classList.remove('hidden');
+
+    const opt = {
+        margin:       0.5,
+        filename:     `Kompilasi_Laporan_Keuangan_BPOM_${new Date().toISOString().split('T')[0]}.pdf`,
+        image:        { type: 'jpeg', quality: 0.98 },
+        html2canvas:  { scale: 2, useCORS: true },
+        jsPDF:        { unit: 'in', format: 'a4', orientation: 'portrait' }
+    };
+
+    html2pdf().from(printableArea).set(opt).save().then(() => {
+        printableArea.classList.add('hidden');
+    }).catch(err => {
+        printableArea.classList.add('hidden');
+        alert('Gagal mengunduh PDF.');
+    });
+}
+
+// ==========================================
+// 9. RENDERING UI & GRAFIK
+// ==========================================
+function renderDashboard() {
+    renderStats();
+    renderTable();
+    updateCharts();
+}
+
+function renderStats() {
+    let totalMasuk = 0;
+    let totalKeluar = 0;
+
+    transactions.forEach(t => {
+        if (t.type === 'Masuk') totalMasuk += t.amount;
+        else totalKeluar += t.amount;
+    });
+
+    let saldo = totalMasuk - totalKeluar;
+
+    document.getElementById('stat-saldo').innerText = formatRupiah(saldo);
+    document.getElementById('stat-masuk').innerText = formatRupiah(totalMasuk);
+    document.getElementById('stat-keluar').innerText = formatRupiah(totalKeluar);
+    document.getElementById('stat-trx').innerText = transactions.length;
+}
+
+function renderTable() {
+    const tbody = document.getElementById('transaction-table-body');
+    const searchInput = document.getElementById('search-input');
+    const keyword = searchInput ? searchInput.value.toLowerCase() : '';
+    tbody.innerHTML = '';
+
+    const filtered = transactions.filter(t => t.desc.toLowerCase().includes(keyword) || t.category.toLowerCase().includes(keyword));
+
+    if (filtered.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="6" class="p-4 text-center text-xs text-slate-400">Tidak ada data transaksi ditemukan.</td></tr>`;
+        return;
+    }
+
+    filtered.sort((a, b) => new Date(b.date) - new Date(a.date)).forEach(t => {
+        const tr = document.createElement('tr');
+        tr.className = 'hover:bg-slate-50/80 transition';
+        
+        let badgeClass = t.type === 'Masuk' ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700';
+        let amountSign = t.type === 'Masuk' ? '+' : '-';
+
+        tr.innerHTML = `
+            <td class="p-3 text-xs text-slate-600">${t.date}</td>
+            <td class="p-3 text-xs font-medium text-slate-700">${t.category}</td>
+            <td class="p-3 text-xs text-slate-600">${t.desc}</td>
+            <td class="p-3 text-xs"><span class="px-2 py-0.5 rounded-full font-semibold ${badgeClass}">${t.type}</span></td>
+            <td class="p-3 text-xs font-bold text-right ${t.type === 'Masuk' ? 'text-emerald-600' : 'text-rose-600'}">${amountSign} ${formatRupiah(t.amount)}</td>
+        `;
+
+        if (currentRole === 'admin') {
+            tr.innerHTML += `
+                <td class="p-3 text-xs text-center space-x-1">
+                    <button onclick="editTransaction('${t.id}')" class="text-blue-500 hover:text-blue-700 px-1.5 py-1" title="Edit"><i class="fa-solid fa-pen"></i></button>
+                    <button onclick="deleteTransaction('${t.id}')" class="text-rose-500 hover:text-rose-700 px-1.5 py-1" title="Hapus"><i class="fa-solid fa-trash"></i></button>
+                </td>
+            `;
+        }
+        tbody.appendChild(tr);
+    });
+}
+
+function renderTrackingTable() {
+    const tbody = document.getElementById('tracking-table-body');
+    if (!tbody) return;
+    tbody.innerHTML = '';
+
+    if (activityLogs.length === 0) {
+        const colSpan = (currentRole === 'super_admin') ? 5 : 4;
+        tbody.innerHTML = `<tr><td colspan="${colSpan}" class="p-4 text-center text-slate-400">Belum ada histori perubahan data.</td></tr>`;
+        return;
+    }
+
+    activityLogs.forEach(log => {
+        let badgeColor = "bg-slate-100 text-slate-700";
+        if (log.action === 'TAMBAH') badgeColor = "bg-emerald-100 text-emerald-700";
+        else if (log.action === 'UPDATE') badgeColor = "bg-blue-100 text-blue-700";
+        else if (log.action === 'HAPUS') badgeColor = "bg-rose-100 text-rose-700";
+        else if (log.action === 'LOGIN') badgeColor = "bg-amber-100 text-amber-700";
+
+        const tr = document.createElement('tr');
+        tr.className = 'hover:bg-slate-50 transition';
+        tr.innerHTML = `
+            <td class="p-3 text-slate-500 font-mono">${log.time}</td>
+            <td class="p-3 font-semibold text-slate-700">Admin ${log.division}</td>
+            <td class="p-3"><span class="px-2 py-0.5 rounded font-bold text-[10px] ${badgeColor}">${log.action}</span></td>
+            <td class="p-3 text-slate-600">${log.details}</td>
+        `;
+
+        if (currentRole === 'super_admin') {
+            tr.innerHTML += `
+                <td class="p-3 text-center">
+                    <button onclick="deleteTrackingLog('${log.id}')" class="text-rose-500 hover:text-rose-700 p-1.5" title="Hapus Log Ini"><i class="fa-solid fa-trash"></i></button>
+                </td>
+            `;
+        }
+        tbody.appendChild(tr);
+    });
+}
+
+function initCharts() {
+    const categories = ['Sumbangan Sukarela', 'Sumbangan Sosial', 'Iuran Korpri', 'Lainnya'];
+
+    const ctxIncome = document.getElementById('incomeChart').getContext('2d');
+    incomeChartInstance = new Chart(ctxIncome, {
+        type: 'bar',
+        data: {
+            labels: categories,
+            datasets: [{
+                label: 'Pemasukan (Rp)',
+                data: [0, 0, 0, 0],
+                backgroundColor: '#10b981',
+                borderRadius: 6
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: { legend: { display: false } },
+            scales: { y: { beginAtZero: true } }
+        }
+    });
+
+    const ctxExpense = document.getElementById('expenseChart').getContext('2d');
+    expenseChartInstance = new Chart(ctxExpense, {
+        type: 'bar',
+        data: {
+            labels: categories,
+            datasets: [{
+                label: 'Pengeluaran (Rp)',
+                data: [0, 0, 0, 0],
+                backgroundColor: '#f43f5e',
+                borderRadius: 6
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: { legend: { display: false } },
+            scales: { y: { beginAtZero: true } }
+        }
+    });
+
+    updateCharts();
+}
+
+function updateCharts() {
+    if (!incomeChartInstance || !expenseChartInstance) return;
+
+    const categories = ['Sumbangan Sukarela', 'Sumbangan Sosial', 'Iuran Korpri', 'Lainnya'];
+
+    let incomeTotals = categories.map(cat => {
+        return transactions
+            .filter(t => t.category === cat && t.type === 'Masuk')
+            .reduce((sum, t) => sum + t.amount, 0);
+    });
+
+    let expenseTotals = categories.map(cat => {
+        return transactions
+            .filter(t => t.category === cat && t.type === 'Keluar')
+            .reduce((sum, t) => sum + t.amount, 0);
+    });
+
+    incomeChartInstance.data.datasets[0].data = incomeTotals;
+    incomeChartInstance.update();
+
+    expenseChartInstance.data.datasets[0].data = expenseTotals;
+    expenseChartInstance.update();
+}
+
+function formatRupiah(number) {
+    return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(number);
 }
     </script>
 </body>
