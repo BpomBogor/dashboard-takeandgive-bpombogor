@@ -167,6 +167,13 @@
                         </div>
                         <form id="transaction-form" onsubmit="handleFormSubmit(event)" class="space-y-3">
                             <input type="hidden" id="tx-id">
+                            
+                            <!-- KOLOM ISIAN TANGGAL -->
+                            <div>
+                                <label class="block text-xs font-semibold text-slate-600 mb-1">Tanggal Transaksi</label>
+                                <input type="date" id="tx-date" required class="w-full text-sm border border-slate-300 rounded-lg p-2 focus:ring-2 focus:ring-emerald-500 focus:outline-none">
+                            </div>
+
                             <div>
                                 <label class="block text-xs font-semibold text-slate-600 mb-1">Jenis Transaksi</label>
                                 <select id="tx-type" class="w-full text-sm border border-slate-300 rounded-lg p-2 focus:ring-2 focus:ring-emerald-500 focus:outline-none">
@@ -465,6 +472,12 @@ let expenseChartInstance = null;
 // 3. LISTEN DATA CLOUD (REAL-TIME SYNC)
 // ==========================================
 document.addEventListener('DOMContentLoaded', () => {
+    // Set default tanggal inputan ke hari ini
+    const dateInput = document.getElementById('tx-date');
+    if (dateInput) {
+        dateInput.value = new Date().toISOString().split('T')[0];
+    }
+
     updateRoleUI();
     initCharts();
 
@@ -678,6 +691,9 @@ function handleFormSubmit(e) {
         return;
     }
 
+    // Mengambil nilai Tanggal dari input
+    const txDate = document.getElementById('tx-date').value || new Date().toISOString().split('T')[0];
+    
     // Mengunci Kategori sesuai Bidang Admin
     const allowedCategory = divisionCategoryMap[currentAdminDivision];
     const category = allowedCategory || document.getElementById('tx-category').value;
@@ -689,7 +705,7 @@ function handleFormSubmit(e) {
     if (txIdInput) {
         // Edit Transaksi yang Ada
         const updatedData = {
-            date: new Date().toISOString().split('T')[0],
+            date: txDate,
             category,
             desc,
             type,
@@ -697,7 +713,7 @@ function handleFormSubmit(e) {
         };
 
         txRef.child(txIdInput).update(updatedData).then(() => {
-            addLog(currentAdminDivision, "UPDATE", `Update transaksi [${category}] ${formatRupiah(amount)} (${desc})`);
+            addLog(currentAdminDivision, "UPDATE", `Update transaksi tanggal ${txDate} [${category}] ${formatRupiah(amount)} (${desc})`);
             resetForm();
             alert('Transaksi berhasil di-update!');
         });
@@ -705,7 +721,7 @@ function handleFormSubmit(e) {
         // Tambah Transaksi Baru
         const newKey = txRef.push().key;
         const newData = {
-            date: new Date().toISOString().split('T')[0],
+            date: txDate,
             category,
             desc,
             type,
@@ -713,7 +729,7 @@ function handleFormSubmit(e) {
         };
 
         txRef.child(newKey).set(newData).then(() => {
-            addLog(currentAdminDivision, "TAMBAH", `Menambah ${type} [${category}] ${formatRupiah(amount)} (${desc})`);
+            addLog(currentAdminDivision, "TAMBAH", `Menambah ${type} tanggal ${txDate} [${category}] ${formatRupiah(amount)} (${desc})`);
             resetForm();
             alert('Transaksi baru disimpan!');
         });
@@ -733,6 +749,7 @@ function editTransaction(id) {
     }
 
     document.getElementById('tx-id').value = tx.id;
+    document.getElementById('tx-date').value = tx.date;
     document.getElementById('tx-type').value = tx.type;
     document.getElementById('tx-category').value = tx.category;
     document.getElementById('tx-amount').value = tx.amount;
@@ -748,6 +765,9 @@ function resetForm() {
     document.getElementById('transaction-form').reset();
     document.getElementById('tx-id').value = '';
     
+    // Kembalikan input tanggal ke hari ini setelah reset
+    document.getElementById('tx-date').value = new Date().toISOString().split('T')[0];
+
     // Pastikan nilai kategori tetap terkunci pada bidang admin yang aktif
     if (currentRole === 'admin' && divisionCategoryMap[currentAdminDivision]) {
         document.getElementById('tx-category').value = divisionCategoryMap[currentAdminDivision];
@@ -1014,7 +1034,6 @@ function renderTable() {
 
         if (currentRole === 'admin') {
             const allowedCategory = divisionCategoryMap[currentAdminDivision];
-            // Tampilkan tombol aksi (edit/hapus) HANYA jika transaksi sesuai dengan bidang admin yang aktif
             if (t.category === allowedCategory) {
                 tr.innerHTML += `
                     <td class="p-3 text-xs text-center space-x-1">
