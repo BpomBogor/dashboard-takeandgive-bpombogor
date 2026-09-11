@@ -14,10 +14,9 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <!-- jsPDF & html2pdf untuk Export ke PDF -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
-<!-- Firebase SDK (Compat Version untuk Kemudahan Integrasi Single-File) -->
+    <!-- Firebase SDK (Compat Version untuk Kemudahan Integrasi Single-File) -->
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-database-compat.js"></script>
-</head>
 </head>
 <body class="bg-slate-50 font-sans antialiased text-slate-800">
 
@@ -177,7 +176,7 @@
                             </div>
                             <div>
                                 <label class="block text-xs font-semibold text-slate-600 mb-1">Kategori Sumber</label>
-                                <select id="tx-category" class="w-full text-sm border border-slate-300 rounded-lg p-2 focus:ring-2 focus:ring-emerald-500 focus:outline-none">
+                                <select id="tx-category" class="w-full text-sm border border-slate-300 rounded-lg p-2 focus:ring-2 focus:ring-emerald-500 focus:outline-none bg-slate-100 cursor-not-allowed">
                                     <option value="Sumbangan Sukarela">Sumbangan Sukarela</option>
                                     <option value="Sumbangan Sosial">Sumbangan Sosial</option>
                                     <option value="Iuran Korpri">Iuran Korpri</option>
@@ -414,10 +413,9 @@
 
     <!-- SCRIPT APLIKASI -->
     <script>
-        // ==========================================
+// ==========================================
 // 1. KONFIGURASI & INISIALISASI FIREBASE
 // ==========================================
-// TODO: Ganti isi objek firebaseConfig di bawah ini dengan milik kamu dari Firebase Console
 const firebaseConfig = {
   apiKey: "AIzaSyD_BY1B_woDIhFONxkrlFqgQyMXKQuB2aY",
   authDomain: "sipena-bpom-bogor.firebaseapp.com",
@@ -437,6 +435,13 @@ const db = firebase.database();
 const txRef = db.ref('transactions');
 const logRef = db.ref('activityLogs');
 const configRef = db.ref('config');
+
+// Mapping Kategori untuk Setiap Admin Bidang
+const divisionCategoryMap = {
+    'Sukarela': 'Sumbangan Sukarela',
+    'Sosial': 'Sumbangan Sosial',
+    'Korpri': 'Iuran Korpri'
+};
 
 // ==========================================
 // 2. STATE APLIKASI
@@ -477,7 +482,6 @@ document.addEventListener('DOMContentLoaded', () => {
         const data = snapshot.val();
         transactions = [];
         if (data) {
-            // Ubah Objek Firebase ke Array
             Object.keys(data).forEach(key => {
                 transactions.push({ id: key, ...data[key] });
             });
@@ -493,7 +497,6 @@ document.addEventListener('DOMContentLoaded', () => {
             Object.keys(data).forEach(key => {
                 activityLogs.push({ id: key, ...data[key] });
             });
-            // Urutkan log dari yang terbaru
             activityLogs.sort((a, b) => b.timestamp - a.timestamp);
         }
         renderTrackingTable();
@@ -576,6 +579,7 @@ function updateRoleUI() {
     const thTrackingAksi = document.getElementById('th-tracking-aksi');
     const btnClearTracking = document.getElementById('btn-clear-tracking');
     const activeAdminLabel = document.getElementById('active-admin-label');
+    const categorySelect = document.getElementById('tx-category');
 
     if (currentRole === 'admin') {
         roleText.innerText = `Admin (${currentAdminDivision})`;
@@ -585,6 +589,19 @@ function updateRoleUI() {
         superAdminPanel.classList.add('hidden');
         thAksi.classList.remove('hidden');
         if (activeAdminLabel) activeAdminLabel.innerText = currentAdminDivision;
+
+        // Kunci Dropdown Kategori Sesuai Bidang Admin
+        if (categorySelect) {
+            const allowedCategory = divisionCategoryMap[currentAdminDivision];
+            if (allowedCategory) {
+                categorySelect.value = allowedCategory;
+                categorySelect.disabled = true;
+                categorySelect.classList.add('bg-slate-100', 'cursor-not-allowed');
+            } else {
+                categorySelect.disabled = false;
+                categorySelect.classList.remove('bg-slate-100', 'cursor-not-allowed');
+            }
+        }
     } else if (currentRole === 'super_admin') {
         roleText.innerText = 'Super Admin (Kontrol & Kompilasi)';
         adminPanel.classList.add('hidden');
@@ -594,6 +611,10 @@ function updateRoleUI() {
         thAksi.classList.add('hidden');
         thTrackingAksi.classList.remove('hidden');
         btnClearTracking.classList.remove('hidden');
+        if (categorySelect) {
+            categorySelect.disabled = false;
+            categorySelect.classList.remove('bg-slate-100', 'cursor-not-allowed');
+        }
     } else {
         roleText.innerText = 'Pegawai (Viewer)';
         adminPanel.classList.add('hidden');
@@ -603,6 +624,10 @@ function updateRoleUI() {
         thAksi.classList.add('hidden');
         thTrackingAksi.classList.add('hidden');
         btnClearTracking.classList.add('hidden');
+        if (categorySelect) {
+            categorySelect.disabled = false;
+            categorySelect.classList.remove('bg-slate-100', 'cursor-not-allowed');
+        }
     }
 }
 
@@ -653,11 +678,13 @@ function handleFormSubmit(e) {
         return;
     }
 
-    const txIdInput = document.getElementById('tx-id').value;
+    // Mengunci Kategori sesuai Bidang Admin
+    const allowedCategory = divisionCategoryMap[currentAdminDivision];
+    const category = allowedCategory || document.getElementById('tx-category').value;
     const type = document.getElementById('tx-type').value;
-    const category = document.getElementById('tx-category').value;
     const amount = parseFloat(document.getElementById('tx-amount').value);
     const desc = document.getElementById('tx-desc').value;
+    const txIdInput = document.getElementById('tx-id').value;
 
     if (txIdInput) {
         // Edit Transaksi yang Ada
@@ -698,6 +725,13 @@ function editTransaction(id) {
     const tx = transactions.find(t => t.id === id);
     if (!tx) return;
 
+    // Batasi Edit Transaksi Hanya untuk Kategori Bidang Admin Sendiri
+    const allowedCategory = divisionCategoryMap[currentAdminDivision];
+    if (allowedCategory && tx.category !== allowedCategory) {
+        alert(`Anda hanya memiliki akses untuk mengubah transaksi ${allowedCategory}!`);
+        return;
+    }
+
     document.getElementById('tx-id').value = tx.id;
     document.getElementById('tx-type').value = tx.type;
     document.getElementById('tx-category').value = tx.category;
@@ -713,6 +747,12 @@ function editTransaction(id) {
 function resetForm() {
     document.getElementById('transaction-form').reset();
     document.getElementById('tx-id').value = '';
+    
+    // Pastikan nilai kategori tetap terkunci pada bidang admin yang aktif
+    if (currentRole === 'admin' && divisionCategoryMap[currentAdminDivision]) {
+        document.getElementById('tx-category').value = divisionCategoryMap[currentAdminDivision];
+    }
+
     document.getElementById('form-title').innerHTML = `<i class="fa-solid fa-pen-to-square mr-2 text-emerald-600"></i>Entri Transaksi Baru`;
     document.getElementById('btn-submit').innerText = 'Simpan Transaksi';
     document.getElementById('btn-submit').className = 'w-full bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-semibold py-2 rounded-lg transition shadow-sm';
@@ -722,11 +762,18 @@ function resetForm() {
 function deleteTransaction(id) {
     if (currentRole !== 'admin') return;
     const tx = transactions.find(t => t.id === id);
+    if (!tx) return;
+
+    // Batasi Hapus Transaksi Hanya untuk Kategori Bidang Admin Sendiri
+    const allowedCategory = divisionCategoryMap[currentAdminDivision];
+    if (allowedCategory && tx.category !== allowedCategory) {
+        alert(`Anda hanya memiliki akses untuk menghapus transaksi ${allowedCategory}!`);
+        return;
+    }
+
     if (confirm('Hapus transaksi ini dari Cloud Database?')) {
         txRef.child(id).remove().then(() => {
-            if (tx) {
-                addLog(currentAdminDivision, "HAPUS", `Menghapus transaksi [${tx.category}] ${formatRupiah(tx.amount)} (${tx.desc})`);
-            }
+            addLog(currentAdminDivision, "HAPUS", `Menghapus transaksi [${tx.category}] ${formatRupiah(tx.amount)} (${tx.desc})`);
         });
     }
 }
@@ -749,7 +796,7 @@ function addLog(division, action, details) {
 
 function clearTrackingLogs() {
     if (currentRole !== 'super_admin') return;
-    if (confirm('Hapus SEMURAH riwayat log tracking dari server cloud?')) {
+    if (confirm('Hapus SEMUA riwayat log tracking dari server cloud?')) {
         logRef.remove();
     }
 }
@@ -799,7 +846,6 @@ function restoreDataJSON(event) {
             if (!parsed.transactions) throw new Error('Format file tidak valid.');
 
             if (confirm(`Restore data akan menimpa seluruh database cloud saat ini. Lanjutkan?`)) {
-                // Upload ulang ke Cloud
                 const newTxObj = {};
                 parsed.transactions.forEach(t => {
                     const id = t.id || txRef.push().key;
@@ -967,12 +1013,18 @@ function renderTable() {
         `;
 
         if (currentRole === 'admin') {
-            tr.innerHTML += `
-                <td class="p-3 text-xs text-center space-x-1">
-                    <button onclick="editTransaction('${t.id}')" class="text-blue-500 hover:text-blue-700 px-1.5 py-1" title="Edit"><i class="fa-solid fa-pen"></i></button>
-                    <button onclick="deleteTransaction('${t.id}')" class="text-rose-500 hover:text-rose-700 px-1.5 py-1" title="Hapus"><i class="fa-solid fa-trash"></i></button>
-                </td>
-            `;
+            const allowedCategory = divisionCategoryMap[currentAdminDivision];
+            // Tampilkan tombol aksi (edit/hapus) HANYA jika transaksi sesuai dengan bidang admin yang aktif
+            if (t.category === allowedCategory) {
+                tr.innerHTML += `
+                    <td class="p-3 text-xs text-center space-x-1">
+                        <button onclick="editTransaction('${t.id}')" class="text-blue-500 hover:text-blue-700 px-1.5 py-1" title="Edit"><i class="fa-solid fa-pen"></i></button>
+                        <button onclick="deleteTransaction('${t.id}')" class="text-rose-500 hover:text-rose-700 px-1.5 py-1" title="Hapus"><i class="fa-solid fa-trash"></i></button>
+                    </td>
+                `;
+            } else {
+                tr.innerHTML += `<td class="p-3 text-xs text-center text-slate-300">-</td>`;
+            }
         }
         tbody.appendChild(tr);
     });
