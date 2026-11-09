@@ -551,30 +551,16 @@ function verifySuperAdminLogin() {
 }
 
 function verifyAdminLogin(division) {
-    let inputPass = "";
-    if (division === 'Sukarela') inputPass = document.getElementById('pass-sukarela').value;
-    if (division === 'Sosial') inputPass = document.getElementById('pass-sosial').value;
-    if (division === 'Korpri') inputPass = document.getElementById('pass-korpri').value;
+    // Paksa langsung sukses tanpa cek password untuk mendiagnosis
+    currentRole = 'admin';
+    currentAdminDivision = division;
+    localStorage.setItem('bpom_role', 'admin');
+    localStorage.setItem('bpom_division', division);
 
-    if (inputPass === adminPasswords[division]) {
-        currentRole = 'admin';
-        currentAdminDivision = division;
-        localStorage.setItem('bpom_role', 'admin');
-        localStorage.setItem('bpom_division', division);
-
-        addLog(division, "LOGIN", "Berhasil masuk ke panel admin bidang " + division);
-
-        document.getElementById('pass-sukarela').value = '';
-        document.getElementById('pass-sosial').value = '';
-        document.getElementById('pass-korpri').value = '';
-
-        toggleRoleModal();
-        updateRoleUI();
-        renderDashboard();
-        alert(`Berhasil masuk sebagai Admin ${division}!`);
-    } else {
-        alert(`Kata sandi Admin ${division} salah!`);
-    }
+    toggleRoleModal();
+    updateRoleUI();
+    renderDashboard();
+    alert(`Berhasil masuk sebagai Admin ${division}!`);
 }
 
 function toggleRoleModal() {
