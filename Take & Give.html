@@ -551,7 +551,7 @@ function verifySuperAdminLogin() {
 }
 
 function verifyAdminLogin(division) {
-    // Paksa langsung sukses tanpa cek password untuk mendiagnosis
+    // Paksa langsung masuk agar sistem mendeteksi rolenya
     currentRole = 'admin';
     currentAdminDivision = division;
     localStorage.setItem('bpom_role', 'admin');
