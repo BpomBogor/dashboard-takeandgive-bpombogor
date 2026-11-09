@@ -551,16 +551,32 @@ function verifySuperAdminLogin() {
 }
 
 function verifyAdminLogin(division) {
-    // Paksa langsung masuk agar sistem mendeteksi rolenya
-    currentRole = 'admin';
-    currentAdminDivision = division;
-    localStorage.setItem('bpom_role', 'admin');
-    localStorage.setItem('bpom_division', division);
+    let inputPass = "";
+    if (division === 'Sukarela') inputPass = document.getElementById('pass-sukarela').value;
+    if (division === 'Sosial') inputPass = document.getElementById('pass-sosial').value;
+    if (division === 'Korpri') inputPass = document.getElementById('pass-korpri').value;
 
-    toggleRoleModal();
-    updateRoleUI();
-    renderDashboard();
-    alert(`Berhasil masuk sebagai Admin ${division}!`);
+    // Mencocokkan dengan objek adminPasswords yang ada di atasnya
+    if (inputPass === adminPasswords[division]) {
+        currentRole = 'admin';
+        currentAdminDivision = division;
+        localStorage.setItem('bpom_role', 'admin');
+        localStorage.setItem('bpom_division', division);
+
+        addLog(division, "LOGIN", "Berhasil masuk ke panel admin bidang " + division);
+
+        // Bersihkan input form sandi
+        document.getElementById('pass-sukarela').value = '';
+        document.getElementById('pass-sosial').value = '';
+        document.getElementById('pass-korpri').value = '';
+
+        toggleRoleModal();
+        updateRoleUI();
+        renderDashboard();
+        alert(`Berhasil masuk sebagai Admin ${division}!`);
+    } else {
+        alert(`Kata sandi Admin ${division} salah!`);
+    }
 }
 
 function toggleRoleModal() {
